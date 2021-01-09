@@ -1,0 +1,39 @@
+screen 0,300,300
+	mx=100
+	my=0
+
+	repeat 25
+		table.cnt=a
+		a-=0.1*1000
+	loop
+	repeat 25
+		table(cnt+25)=b
+		b+=0.1*1000
+	loop
+	repeat 25
+		gtable.cnt=c
+		c+=0.1*1000
+	loop
+	repeat 25
+		gtable(cnt+25)=d
+		d-=0.1*1000
+	loop
+	
+repeat
+
+	redraw 0
+	color 0,0,0
+	boxf 0,0,300,300
+	color 255,255,255
+	kaz+=1
+	pos mx,my
+	mes "*"
+
+	if kaz>=50:stop
+	mx+=table.kaz/1000
+	my+=1
+	
+	wait 1
+	redraw 1
+
+loop

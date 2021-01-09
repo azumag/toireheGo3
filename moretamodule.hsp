@@ -1,0 +1,219 @@
+#deffunc getick
+
+	name=0
+
+//”ñƒgƒŠƒK[ƒ^ƒCƒv
+	getkey left,37
+	getkey right,39
+	getkey up,38
+	getkey down,40
+	getkey sps,32
+
+//ƒgƒŠƒK[ƒ^ƒCƒv
+	getkey ent,13
+	getkey xkey,88
+	getkey akey,65
+	getkey skey,83
+	getkey ckey,67
+	getkey ctrl,17
+	
+
+//–ß‚è’l‚Ì•Ï‰»
+	if left=1:name+=1
+	if right=1:name+=4
+	if up=1:name+=2
+	if down=1:name+=8
+	if sps=1:name+=16
+	
+	
+	if ent=0:buf=0
+	if ent=1&buf=0|ctrl=1{
+		buf=1
+		name+=32
+	}
+
+	if xkey=0:buf2=0
+	if xkey=1&buf2=0{
+		buf2=1
+		name+=64
+	}
+	if ckey=0:buf6=0
+	if ckey=1&buf6=0{
+		buf6=1
+		name+=128
+	}
+	
+//ƒEƒFƒCƒg’²®
+
+/*if replayf=1{
+;		if akey=0:buf3=0
+;		if akey=1&buf3=0{
+;			buf3=1
+;			waitkaunt+=5
+;			ds_play 1
+;			color 255,255,255
+;			font "MS ƒSƒVƒbƒN",16
+;			pos 150,220:mes waitkaunt
+			
+		}
+		if skey=0:buf4=0
+		if skey=1&buf4=0{
+			buf4=1
+			waitkaunt-=5
+	
+			ds_play 1
+			color 255,255,255
+			font "MS ƒSƒVƒbƒN",16
+			pos 150,220:mes waitkaunt
+			
+		}
+	}
+*/
+	
+	return name
+
+#deffunc getsankak int af
+//----------------------------Ž©‹@‚Ì‚¢‚éŠp“x‚ðŒvŽZ
+	//“G‚ÌÀ•W‚©‚ç‚Ì‹——£‚ðŒv‘ª
+	kyorx=tx2.af-mycharcenterx
+	kyory=ty2.af-mycharcentery
+	if tx2.af>mycharcenterx:hantenx=1:else:hantenx=0
+	if ty2.af>mycharcentery:hanteny=1:else:hanteny=0
+
+	c=atan(kyory,kyorix)
+
+	//‹——£‚Ìâ‘Î’l‚ð‚Æ‚é(0‚¾‚Á‚½‚ç{‚P‚·‚éj
+	kyory=abs(kyory)
+	kyorx=abs(kyorx)
+	if kyorx=0 :kyorx+=1
+	if kyory=0 :kyory+=1
+
+	//À•W‚©‚çŽ©•ª‚Ì‚¢‚éÀ•W‚ÌŠp“x‚ðŒvŽZ
+	zahyo=double(kyory)/double(kyorx)
+	a=atan(zahyo)
+	
+	b=a*180/3.1415926535897932384626433832795
+	b=int(b)
+
+	if hantenx=1:b=180-b
+	if hanteny=1:b=360-b
+	if b>=360:b=4
+	if b<=0:b=4
+	modc=double((b+270)*3.1415926535897932384626433832795)/180
+//----------------------------‚±‚±‚Ü‚Å
+
+	return b,c,modc
+#deffunc getsankaktcy int af
+//----------------------------Ž©‹@‚Ì‚¢‚éŠp“x‚ðŒvŽZ
+	//“G‚ÌÀ•W‚©‚ç‚Ì‹——£‚ðŒv‘ª
+	kyorx=tcx.af-mycharcenterx
+	kyory=tcy.af-mycharcentery
+	if tcx.af>mycharcenterx:hantenx=1:else:hantenx=0
+	if tcy.af>mycharcentery:hanteny=1:else:hanteny=0
+
+	c=atan(kyory,kyorix)
+
+	//‹——£‚Ìâ‘Î’l‚ð‚Æ‚é(0‚¾‚Á‚½‚ç{‚P‚·‚éj
+	kyory=abs(kyory)
+	kyorx=abs(kyorx)
+	if kyorx=0 :kyorx+=1
+	if kyory=0 :kyory+=1
+
+	//À•W‚©‚çŽ©•ª‚Ì‚¢‚éÀ•W‚ÌŠp“x‚ðŒvŽZ
+	zahyo=double(kyory)/double(kyorx)
+	a=atan(zahyo)
+	
+	b=a*180/3.1415926535897932384626433832795
+	b=int(b)
+
+	if hantenx=1:b=180-b
+	if hanteny=1:b=360-b
+	if b>=360:b=4
+	if b<=0:b=4
+	modc=double((b+270)*3.1415926535897932384626433832795)/180
+//----------------------------‚±‚±‚Ü‚Å
+	return b
+#deffunc getsankak2 int af,int as
+//----------------------------Ž©‹@‚Ì‚¢‚éŠp“x‚ðŒvŽZ
+		//“G‚ÌÀ•W‚©‚ç‚Ì‹——£‚ðŒv‘ª
+		kyorx=shotx2.as-tcx.af
+		kyory=shoty2.as-tcy.af
+		if shotx2.as>tcx.af:hantenx=1:else:hantenx=0
+		if shoty2.as>tcy.af:hanteny=1:else:hanteny=0
+			
+		//‹——£‚Ìâ‘Î’l‚ð‚Æ‚é(0‚¾‚Á‚½‚ç{‚P‚·‚éj
+		kyory=abs(kyory)
+		kyorx=abs(kyorx)
+		if kyorx=0 :kyorx+=1
+		if kyory=0 :kyory+=1
+			
+		//À•W‚©‚çŽ©•ª‚Ì‚¢‚éÀ•W‚ÌŠp“x‚ðŒvŽZ
+		zahyo=double(kyory)/double(kyorx)
+		a=atan(zahyo)
+		b=a*180/3.1415926535897932384626433832795
+		b=int(b)
+			
+		if hantenx=1:b=180-b
+		if hanteny=1:b=360-b
+//----------------------------‚±‚±‚Ü‚Å
+		if b>=360:b=0
+		if b<=0:b=0
+		
+	return b
+#deffunc getsankak3 int af
+//----------------------------Ž©‹@‚Ì‚¢‚éŠp“x‚ðŒvŽZ
+	//“G‚ÌÀ•W‚©‚ç‚Ì‹——£‚ðŒv‘ª
+	kyorx=int(exa)-mycharcenterx
+	kyory=int(exy)-mycharcentery
+	if int(exa)>mycharcenterx:hantenx=1:else:hantenx=0
+	if int(exy)>mycharcentery:hanteny=1:else:hanteny=0
+
+	c=atan(kyory,kyorix)
+
+	//‹——£‚Ìâ‘Î’l‚ð‚Æ‚é(0‚¾‚Á‚½‚ç{‚P‚·‚éj
+	kyory=abs(kyory)
+	kyorx=abs(kyorx)
+	if kyorx=0 :kyorx+=1
+	if kyory=0 :kyory+=1
+
+	//À•W‚©‚çŽ©•ª‚Ì‚¢‚éÀ•W‚ÌŠp“x‚ðŒvŽZ
+	zahyo=double(kyory)/double(kyorx)
+	a=atan(zahyo)
+	
+	b=a*180/3.1415926535897932384626433832795
+	b=int(b)
+
+	if hantenx=1:b=180-b
+	if hanteny=1:b=360-b
+	if b>=360:b=4
+	if b<=0:b=4
+//----------------------------‚±‚±‚Ü‚Å
+
+	return b,c
+#deffunc resetmove int af,int kakudo,int sokudo
+
+	eh2.af=kakudo
+	txv.af=cosa(eh2.af)/sokudo : tyv.af=sina(eh2.af)/sokudo
+
+	return
+#deffunc nohit int af
+
+				//“–‚½‚è”»’è‚Ì”ÍˆÍ
+				hitchklenghx.af=-1000
+				hitchklenghy.af=-1000
+			
+				//’†SÀ•W—p‰ÁŽZ•Ï”
+				tcplusx.af=-1000
+				tcplusy.af=-1000
+
+				return
+#deffunc disBullet int af
+//‰æ–Êã‚Éo‚Ä‚¢‚é‹Ê‚ð‚·‚×‚Äíœ‚·‚é
+
+	repeat tmax
+		if tf.cnt<1:continue
+		if ts.cnt=2|ts.cnt=7|ts.cnt=10|ts.cnt=13|ts.cnt=19|ts.cnt=20|ts.cnt=24|ts.cnt=26|ts.cnt=27|ts.cnt=37|ts.cnt=41|ts.cnt=42|ts.cnt=43:dis.cnt=1:tamakesitaz+=1
+	loop
+
+	return
+	

@@ -1,0 +1,26 @@
+
+moji = "Ç‡ÇÍÇΩ"
+mojix = "b"
+
+mojix = mojix-10
+
+stop
+
+sizex = strlen(moji)
+repeat sizex
+	t = peek(moji,cnt)
+	t = t+1 &255
+	poke moji,cnt,t
+loop
+
+mes "à√çÜâªåÍ="+moji
+
+repeat sizex
+	t = peek(moji,cnt)
+	t = t-1 &255
+	poke moji,cnt,t
+loop
+
+mes moji
+stop
+

@@ -1,0 +1,17 @@
+	screen 0,440,440
+	//三角関数テーブル作成--------------8bit三角関数---------------------------
+	mes "三角関数テーブル作成中"
+	dim sina,360 : dim cosa,360	
+	cosa.0=10000 : sina.0=0
+	cosa.1=9999 : sina.1=175
+	repeat 358,1
+		ent=cnt+1
+		cosa.ent=((cosa.1*cosa.cnt)-(sina.1*sina.cnt))/10000
+		sina.ent=((sina.1*cosa.cnt)+(cosa.1*sina.cnt))/10000
+	loop
+	mes "完了"
+//;----------------------------------------------------------------------
+	cls 4
+	
+
+	stop

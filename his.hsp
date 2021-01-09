@@ -1,0 +1,44 @@
+sdim a,1000
+c = ""
+
+notesel a
+for i,10,0,-1
+addyou = i*1000
+noteadd str(addyou)
+next
+
+noteadd "4118780",0
+;noteadd "9865582",1
+
+bsave "hiscore.bin",a
+
+noteunsel
+
+b.0 = "Serialize\t"
+b.1 = "b"
+b.2 = "c"
+b.3 = "d"
+b.4 = "e"
+b.5 = "f"
+b.6 = "g"
+b.7 = "h"
+b.8 = "i"
+b.9 = "j"
+
+notesel c
+foreach b
+	noteadd b.cnt 
+loop
+;noteadd "ƒZƒuƒ“•ƒƒC",0
+;noteadd "Azma",1
+
+bsave "hisname.bin",c
+sdim playfps,2048
+notesel playfps
+for i,10,0,-1
+addyou = i*10
+noteadd "50"
+next
+noteadd "47",0,1
+bsave "net/playfps.bin",playfps
+end

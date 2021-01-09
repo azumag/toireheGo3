@@ -1,0 +1,23 @@
+	screen 0,400,400,0
+	gsel 0
+	sdim enemydate,100000
+	sdim ssaveen,100000
+	bload "stage1.dat",enemydate
+	notesel enemydate
+	sdim one,20,notemax
+	sdim enemyline,20,notemax	
+	csvline="":ind=0
+	repeat notemax
+		noteget one,cnt
+			enemyline.cnt = one
+	loop
+	lp=notemax
+	repeat lp
+	notesel ssaveen
+	add = "enemyline."+cnt+" =\""+enemyline.cnt+"\""
+	noteadd add
+	loop
+	mes ssaveen
+	bsave "ensav.txt",ssaveen
+
+	

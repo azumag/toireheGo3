@@ -1,0 +1,71 @@
+	goto *top
+	#include "moretamoduleJava.hsp"
+*top
+	#include "sss.as"
+	#include "hspda.as"
+	#include "d3m.hsp"
+	
+
+
+
+
+//三角関数テーブル作成--------------8bit三角関数---------------------------
+	mes "三角関数テーブル作成中"
+	dim sina,360 : dim cosa,360	
+	cosa.0=10000 : sina.0=0
+	cosa.1=9999 : sina.1=175
+	repeat 358,1
+		ent=cnt+1
+		cosa.ent=((cosa.1*cosa.cnt)-(sina.1*sina.cnt))/10000
+		sina.ent=((sina.1*cosa.cnt)+(cosa.1*sina.cnt))/10000
+	loop
+	mes "完了"
+//;----------------------------------------------------------------------
+//--------弾の配列を確保--------------
+	mes "擬似オブジェクトの配列作成中"
+	tmax=1500				;画面上の弾最大数
+	dim tx,tmax				;x座標 (1000倍で計算・固定小数点数）
+	dim ty,tmax				;y座標 (1000倍
+	dim tf,tmax				;フラグ
+	dim txv,tmax			;移動量x
+	dim tyv,tmax			;移動量y
+	dim tx2,tmax			;x座標（表示用・実際の座標）
+	dim ty2,tmax			;y座標（表示用・実際の座標)
+	dim tc,tmax				;色
+	dim ts,tmax				;発生したオブジェクトの種類
+	dim tcx,tmax			;中心座標x
+	dim tcy,tmax			;中心座標y
+	dim hitchklenghx,tmax	;当たり判定x
+	dim hitchklenghy,tmax	;当たり判定y
+	dim objtimek,tmax		;オブジェクトのフレームカウンタ
+	dim eh2,tmax			;弾の角度保存
+	dim dis,tmax			;オブジェクトの
+	dim objtimek2,tmax		;オブジェクトの
+	dim objtimek3,tmax		;オブジェクトの
+	dim tcplusx,tmax
+	dim tcplusy,tmax
+	ddim kaitendo,tmax		;オブジェクト回転配列
+	ddim tk,tmax
+	tmax=1500
+	repeat tmax
+		tf.cnt=-1
+	loop
+	
+//----------------------------------------
+//----------------------------ショットの配列
+	maxdansu=360
+
+	dim shotx,maxdansu		
+	dim shoty,maxdansu		
+	dim shotf,maxdansu			
+	dim shotxv,maxdansu	
+	dim shotyv,maxdansu	
+	dim shotx2,maxdansu		
+	dim shoty2,maxdansu		
+	dim shotcx,maxdansu		
+	dim shotcy,maxdansu		
+	dim shotdis,maxdansu
+	maxdansu=360
+	mes "完了"
+//------------------------------通常変数の宣言
+

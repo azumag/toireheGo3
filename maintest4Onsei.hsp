@@ -1,0 +1,8488 @@
+
+#include "hspda.as"
+#include "d3m.hsp"
+#include "dsoundex.as"
+#include "hmm.as"
+#include "sss.as"
+#include "hspinet.as"
+
+
+	ds_init
+	hmminit 2
+	netinit
+	
+goto *start
+
+#include "moretamodule.hsp"
+
+*start
+	
+randomize
+
+//----------------------------オブジェクト種類表
+;ts.cnt
+;0=なし
+;1=前方飛行敵
+;2=通常弾（黄）
+;3=死んだエフェクトのパーティクル
+;4=Shotpowerアイテム
+;5=プロペラ敵
+;6=中ボス１
+;7=弾２
+;8=弾掠りエフェクト
+;9=敵３
+;10=弾３
+;11=背景の雲
+;12=ボス１
+;13=弾４
+;14=ファンネル
+;15=ダメージエフェクト
+;16=敵４
+;17=てき５
+;18=Vman
+;19:houtyou
+;20:laser
+;21:1up
+;22:てき６
+;23:てき７
+;24:たま５
+;25；ドナルド
+;26:速度減衰後狙い球
+;27でかたま
+;28:背景☆
+;29:ほし２
+;30:ジェット噴射
+;31:左旋回移動敵
+;32:渦プロペラ
+;33:逆渦プロペラ訓
+;34超縁談幕プロペラ
+;35ボス氏にエフェクト
+;36:レーザーうつやつ
+;37レーザー本体ｓ
+;38:プロペラ君２号気
+;39:Vマン２
+;40レーザー野郎
+;41れーざ
+;42;　にせレーザ
+;４３見えない弾
+;44:チェインガード
+;45:チェイン左足
+;46:チェイン右足
+;47;チェイン前㊧
+;48:チェイン前右
+;50:せんこうしゃ１
+;52:中華キャノン
+//----------------------------
+	title "ToireheGo!3"
+	winx=ginfo(20)
+	winy=ginfo(21)
+	windx=ginfo(10)
+;20 : デスクトップ全体のXサイズ
+; 21 : デスクトップ全体のYサイズ
+
+	screen 0,440,425,,winx/2-300,50
+	
+	cls 
+	color 0,0,0
+	picload "data/img/nowloading.bmp",1
+	pos 0,50
+	
+*top
+	
+//三角関数テーブル作成--------------8bit三角関数---------------------------
+	mes "三角関数テーブル作成中"
+	dim sina,360 : dim cosa,360	
+	cosa.0=10000 : sina.0=0
+	cosa.1=9999 : sina.1=175
+	repeat 358,1
+		ent=cnt+1
+		cosa.ent=((cosa.1*cosa.cnt)-(sina.1*sina.cnt))/10000
+		sina.ent=((sina.1*cosa.cnt)+(cosa.1*sina.cnt))/10000
+	loop
+	mes "完了"
+//;----------------------------------------------------------------------
+//--------弾の配列を確保--------------
+	mes "擬似オブジェクトの配列作成中"
+	tmax=1500				;画面上の弾最大数
+	dim tx,tmax				;x座標 (1000倍で計算・固定小数点数）
+	dim ty,tmax				;y座標 (1000倍
+	dim tf,tmax				;フラグ
+	dim txv,tmax			;移動量x
+	dim tyv,tmax			;移動量y
+	dim tx2,tmax			;x座標（表示用・実際の座標）
+	dim ty2,tmax			;y座標（表示用・実際の座標)
+	dim tc,tmax				;色
+	dim ts,tmax				;発生したオブジェクトの種類
+	dim tcx,tmax			;中心座標x
+	dim tcy,tmax			;中心座標y
+	dim hitchklenghx,tmax	;当たり判定x
+	dim hitchklenghy,tmax	;当たり判定y
+	dim objtimek,tmax		;オブジェクトのフレームカウンタ
+	dim eh2,tmax			;弾の角度保存
+	dim dis,tmax			;オブジェクトの
+	dim objtimek2,tmax		;オブジェクトの
+	dim objtimek3,tmax		;オブジェクトの
+	ddim kaitendo,tmax		;オブジェクト回転配列
+	ddim tk,tmax
+	tmax=1500
+	repeat tmax
+		tf.cnt=-1
+	loop
+	
+//----------------------------------------
+//----------------------------ショットの配列
+	maxdansu=360
+
+	//dim shotx,maxdansu		
+	//dim shoty,maxdansu		
+	dim shotf,maxdansu			
+	//dim shotxv,maxdansu	
+	//dim shotyv,maxdansu	
+	//dim shotx2,maxdansu		
+	//dim shoty2,maxdansu		
+	dim shotcx,maxdansu		
+	dim shotcy,maxdansu		
+	dim shotdis,maxdansu
+	maxdansu=360
+	mes "完了"
+//------------------------------通常変数の宣言
+	mes "通常変数の宣言"
+	
+	ket=220				//→の表示座標
+	alloc enemydate,3000//エネミーシーケンス変数宣言
+	dansu=2				//横弾数
+	shotlv=0
+	titlex=0
+	shotpower=0
+	shotitem=0
+	
+	life=4				//初期ライフ
+	drawhantei=0		//判定を描画
+	sp=1				//ショット弾速
+	waitkaunt=17		//初期ウェイト
+	chp=150				//初期中ボスＨＰ初期化
+	bhp=150				//初期大ボスＨＰ初期化
+	haikeihosi=0		//背景星のtrue false
+	usemol=0
+	usesp=0
+	menu=0				//メニューnum
+	fullscr=0			//フルスクリーンtrue false
+	turn=0
+	hissatuf=0
+	moretaspeed=0
+	
+	waponx=440			//wapon call 1
+	waponx2=440			//wapon call 2
+	repbuf=86400		//リプレイ用メモリバッファ
+	sdim replay,repbuf	//バッファ確保
+	dim morkage,30		//
+	replayname=""		//保存用
+	ketx=180
+	sumfps=50			//平均ＦＰＳ初期化
+	maxcont=3			//continue kaisu
+	sdim hiscores,2048
+	sdim hiscorename,2048
+	bload "configb.cfg",waitkaunt	//cfg load
+	bload "configa.cfg",haikeihosi	//cfg load
+	bload "configc.cfg",fullscr
+	bload "hiscore.bin",hiscores,2048
+	bload "hisname.bin",hiscorename,2048
+
+	kaiwaend=0
+	notesel hiscores
+	dim hiscorelineint,10
+	repeat 10
+		noteget hiscoreline(cnt),cnt
+		hiscorelineint(cnt) = int(hiscoreline.cnt)	
+	loop
+	noteunsel 
+	notesel hiscorename
+	sdim hiscorenameline,50,10
+	repeat notemax
+		noteget hiscorenameline(cnt),cnt
+	loop
+	noteunsel 
+
+	c3=0
+	c2=c3
+	c1=c2
+	
+
+	tikyukaiten=0.0		//地球用
+	
+	syatei=1			//shot振幅
+	kasurikaunter=500	//dpm
+
+	sindaz = 0;
+	itemgetz = 0;
+	tamakesitaz=0;
+	kasurikaunterz=0;
+
+	tuyos=0				//test ver
+	if tuyos=1:kasurikaunter=25000:dansu=6:shotlv=5
+
+	mes "完了"
+//バッファに画像読み込み
+	mes "バッファに画像読み込み"
+	buffer 3,,,
+	picload "data/img/mychar.GIF",1
+	buffer 4,,,
+	picload "data/img/zako.gif",1
+	buffer 5,,,
+	picload "data/img/alltama256.GIF",1
+	buffer 6,,,
+	picload "data/img/haikei.gif",1
+	buffer 7,1470,64,
+	picload "data/img/chuboss1.GIF",1
+	buffer 8,,,
+	picload "data/img/system.GIF",1
+	buffer 9,,,
+	picload "data/img/boss.gif",1
+	buffer 10,,
+	picload "data/img/haikei2men.GIF",1
+	buffer 11,,
+	picload "data/img/dona1-3.GIF",1
+	buffer 12,,
+	picload "data/img/stars2.GIF",1
+	buffer 13,,
+	picload "data/img/bg_chip.GIF",1
+	buffer 14,,
+	picload "data/img/chainguard.gif",1
+	buffer 15,,
+	picload "data/img/sks4.bmp",1
+	buffer 16,680,1280
+	picload "data/img/cannon_charge_fire.GIF",1
+	buffer 17,,,
+	picload "toire.bmp",1
+	buffer 18,,,
+	picload "data/img/continue.bmp",1
+	buffer 19,,,
+	picload "data/img/moresp.bmp",1
+	buffer 20,,,
+	picload "data/img/perfect.bmp",1
+	buffer 21,,,
+	picload "data/img/jamm.bmp",1
+	buffer 22,,,
+	picload "data/img/title.jpg",1
+	buffer 24,300,800,
+	picload "data/img/staffloll.jpg",1
+	gsel 0
+	mes "完了"
+//バッファに音楽データ読み込み
+
+	mes "バッファに音楽データ読み込み"
+	wait 10
+
+	//dmloadfname "data/music/stage1.mid", 4 置き換え済み
+
+	//dmloadfname "data/music/boss01a.mid", 2置き換え済み
+	//dmloadfname "data/music/boss01b.mid", 3置き換え済み
+	//dmloadfname "data/music/sea2.mid", 5　置き換え済み
+	dmloadfname "data/music/stage2.mid",6
+	dmloadfname "data/music/katyhilla.mid",8
+	dmloadfname "data/music/katyhill_intro.mid",7
+	dmloadfname "data/music/Done_Gone.mid",10
+	dmloadfname "data/music/bbb_f.mid",11
+	dmloadfname "data/music/bbb_s.mid",13
+	dmloadfname "data/music/bbb_t.mid",14
+	dmloadfname "data/music/BBBS.mid",15
+	dmloadfname "data/music/end.mid",16
+	dmloadfname "data/music/Morning_Drive.mid",17
+	
+	ds_load "data/sound/515.wav",1
+	ds_load "data/sound/bom.wav",2
+	ds_load "data/sound/zasizasi.wav",3
+	ds_load "data/sound/bokan.wav",4
+	ds_load "data/sound/poka.wav",5
+	ds_load "data/sound/bachi.wav",6
+	ds_load "data/sound/poi2.wav",7
+	ds_load "data/sound/kin.wav",8
+	ds_load "data/sound/boss01c.wav",9
+	ds_load "data/sound/bishao.wav",10
+	ds_load "data/sound/laser03.wav",11
+	ds_load "data/sound/gasha.wav",12
+	ds_load "data/sound/chinacnon.wav",13
+	ds_load "data/sound/laser.wav",14
+
+	mmload "data/music/uzygame_s05.mid",2,1
+	mmload "data/music/Flexibility.mid",10
+	mmload "data/sound/ka.mp3",11
+	mmload "data/sound/vman.mp3",12
+	mmload "data/sound/end2.mp3",13
+	mmload "data/sound/vman2.mp3",14
+	mmload "data/sound/orange.mp3",15,1
+	
+	
+	
+	
+	mes "完了"
+
+//  使用するパーティクルを作成
+	d3mkparticle 0, 255, 255, 255 ; 白
+	d3mkparticle 1,  64, 160, 255 ; 青
+	d3mkparticle 2,  255, 0,	0 ; 赤
+	d3mkparticle 3,  64, 255, 16 ; 緑
+*clsa
+	gsel 0
+	
+	bsave "configb.cfg",waitkaunt
+	bsave "configa.cfg",haikeihosi
+	bsave "configc.cfg",fullscr
+
+	if fullscr=1{
+		chgdisp 1
+		winx=ginfo(20)
+		screen 0,440,425,0,winx/2-300,0
+			if stat {
+				chgdisp
+				dialog "640 x 480 への画面モード変更はできませんでした。\nウィンドウモードで実行します。", 0, "error"
+				screen 0,440,440,0,winx/2-300,0
+			}
+	}
+	
+	cls
+*titleloop
+
+	gsel 0	
+	redraw 2
+//----------------------------d3モジュールで背景描画
+	ct++
+	redraw 0
+	
+	color , 8, 24
+	;color 255,255,255
+	boxf
+	pos 0,0
+	color 0,0,0
+	gmode 5,368,53,255
+	gcopy 22,0,0,440,420
+	; カメラ座標を上向きに
+	d3setcam 0,0,-500,0,0,0
+	; パーティクルを描画
+	randomize 0
+	repeat 60
+		if haikeihosi=1:break
+		x = rnd(8000) - 4000
+		y = rnd(8000) - 4000
+		z = rnd(8000)
+		v = rnd(50) + 50
+
+		z = (ct * v + z) \ 12000 - 12000
+
+		; 雪の後ろの光彩
+		gmode 5, , , 64
+		d3particle 1,  x, y, -z, 150
+
+		; 雪パーティクル
+		gmode 5, , , 255
+		d3particlem  3, 50
+
+	loop
+//----------------------------タイトル表示
+	color 255,0,0
+	font "MS ゴシック",20
+	
+	color 255,0,0
+	gmode 5, , , 255
+	d3particle  0,-85+morry,110-morrx,0, 50
+	gmode 2,42,51,
+	pos morrx+100,morry+120:gcopy 3,morehasiri*42+(morrf*150),50,42+(morrf*20),51
+				//:gcopy 14,0,0,200,100
+	mk+=1
+	if mk>=fps/2:morehasiri = 1 - morehasiri:mk=0
+//----------------------------メニュー表示
+	
+	font "MS ゴシック",16:color 255,0,0
+	pos 200,220:mes " Play "
+	pos 200,240:mes " Replay"
+	pos 200,260:mes " Score"
+	pos 200,280:mes " Option"
+	pos 200,300:mes " Exit "
+	pos ketx,ket:mes "→ "
+	pos 380,400:mes "fps="+fps
+//----------------------------キーチェック＆画面移動
+
+	gosub *key
+	if kettei=1:goto *Stagestart
+
+//----------------------------ＦＰＳ取得＆調整
+	fps=d3getfps()
+	if waitkaunt<=0:waitkaunt=0
+
+	mm_await waitkaunt
+	await 1
+//----------------------------
+	redraw 1
+	goto *titleloop
+*key
+
+	stick keyin
+
+	if keyin&8:ket+=20:menu+=1:mmplay 5
+	if keyin&2:ket-=20:menu-=1:mmplay 5
+
+	ket=limit(ket,220,300)
+	menu=limit(menu,0,4)
+	if keyin&36:kettei=1
+
+	return
+*option
+	cls
+	color , 8, 24
+	boxf
+
+	color 255,0,0
+	font "MS ゴシック",40
+	mes "Option"
+	color 255,255,255
+	font "MS ゴシック",16
+	mes:mes:mes
+	mes "速度調整(FPSが50程度になるように設定してください）"
+	input waitkaunt,,,2
+	
+	objsize 300,30
+	chkbox "当たり判定描画（参考程度に)",drawhantei
+	chkbox "３面と背景の星を書かない(軽量化)",haikeihosi
+	chkbox "解像度を変更して画面をでかくしてみる",fullscr
+	objsize 100,20
+	button "設定＆もどる",*clsa
+	stop
+*Ranking
+	cls
+	color , 8, 24
+	boxf
+
+	color 255,0,0
+	font "MS ゴシック",40
+	mes "Hiscore_Ranking"
+	color 255,255,255
+	font "MS ゴシック",16
+	mes:mes:mes
+	foreach hiscorelineint
+		tmp = cnt + 1
+		mes "\t"+tmp+"\t:"+hiscorelineint(cnt)+"\t:"+hiscorenameline(cnt)
+		tmp = 0
+	loop
+	mes:mes
+	button "もどる",*clsa
+	button "ﾈｯﾄﾗﾝｷﾝｸﾞ",*netranking
+	button "ﾗﾝｷﾝｸﾞﾘｾｯﾄ",*resetRanking
+	stop
+*resetRanking
+	
+	notesel hiscores
+	for i,10,0,-1
+		
+		addyou = i*1000
+		noteadd str(addyou),j,1
+		j+=1
+	next
+	j=0
+	noteunsel
+
+	bn.0 = "a"
+	bn.1 = "b"
+	bn.2 = "c"
+	bn.3 = "d"
+	bn.4 = "e"
+	bn.5 = "f"
+	bn.6 = "g"
+	bn.7 = "h"
+	bn.8 = "i"
+	bn.9 = "j"
+
+	notesel hiscorename
+		repeat 10
+			noteadd bn.cnt,cnt, 1
+		loop
+	noteunsel
+
+	notesel hiscores
+	dim hiscorelineint,10
+	repeat 10
+		noteget hiscoreline(cnt),cnt
+		hiscorelineint(cnt) = int(hiscoreline.cnt)	
+	loop
+	noteunsel 
+	notesel hiscorename
+	sdim hiscorenameline,50,10
+	repeat notemax
+		noteget hiscorenameline(cnt),cnt
+	loop
+	noteunsel 
+	
+	bsave "hiscore.bin",hiscores,2048
+	bsave "hisname.bin",hiscorename,2048
+
+	goto *Ranking
+*netranking
+	cls
+	color , 8, 24
+	boxf
+	color 255,0,0
+	font "MS ゴシック",40
+	mes "Now Getting...."
+	color 255,255,255
+	font "MS ゴシック",16
+	ftpopen "members-ftp.jcom.home.ne.jp","kabutomusionline","higasig"
+	;ftpdir tmp,"toireheGo2"
+	ftpdir tmp,"toireheGo"
+	
+	ftpget "hiscore.bin","net/netscore.bin",0
+	ftpget "hisname.bin","net/netname.bin",0
+	ftpget "playfps.bin","net/playfps.bin",0
+	;ftpput "hiscore.bin","test.bin"
+
+   	sdim netscores,2048
+   	sdim netscorename,2048
+   	sdim playfpss,2048
+    bload "net/netscore.bin",netscores,2048
+	bload "net/netname.bin",netscorename,2048
+	bload "net/playfps.bin",playfpss,2048
+	
+	notesel netscores
+	dim netscorelineint,10
+	repeat 10
+		noteget netscoreline(cnt),cnt
+		netscorelineint(cnt) = int(netscoreline.cnt)	
+	loop
+	noteunsel 
+	notesel netscorename
+	sdim netscorenameline,50,10
+	repeat 10
+		noteget netscorenameline(cnt),cnt
+	loop
+	noteunsel 
+	notesel playfpss
+	dim playfpsslineint,10
+	repeat 10
+		noteget playfpssline(cnt),cnt
+		playfpsslineint(cnt) = int(playfpssline.cnt)	
+	loop
+	noteunsel 
+	
+	ftpclose
+	cls
+	color , 8, 24
+	boxf
+	
+
+	color 255,0,0
+	font "MS ゴシック",40
+	mes "Netscore_Ranking"
+	color 255,255,255
+	font "MS ゴシック",16
+	mes:mes:mes
+	foreach netscorelineint
+		tmp = cnt + 1
+		nagasascore = strlen (netscorenameline(cnt))
+		if nagasascore >=8 :jotyou="":else:jotyou="\t"
+		mes "\t"+tmp+"\t:"+netscorelineint(cnt)+"\t:"+netscorenameline(cnt)+jotyou+"\tFPS="+playfpssline.cnt
+		tmp = 0
+		notesel nntt
+		noteadd netscorenameline(cnt)
+		noteunsel
+	loop
+	mes:mes
+	objsize 200,32:combox choice5,,nntt
+	button "ﾘﾌﾟﾚｲをﾀﾞｳﾝﾛｰﾄﾞする",*dlreplay
+	button "もどる",*clsa
+	button "マイランキング",*Ranking
+	stop
+*dlreplay
+	notesel nntt
+	noteget repname,choice5
+	noteunsel
+	ftpopen "members-ftp.jcom.home.ne.jp","kabutomusionline","higasig"
+	ftpdir tmp,"toireheGo"
+	;ftpdir tmp, "toireheGo2"
+	
+	ftpget repname+".rep","replay/"+repname+".rep",0
+	if stat=1 : dialog repname+"のﾘﾌﾟﾚｲは登録されていません"
+	if stat=0 : dialog repname+"のﾘﾌﾟﾚｲをダウンロードしました"
+	ftpclose
+	
+	stop
+*Stagestart
+	
+	stage=1
+	if menu=1:kettei=0:goto *replayload
+	if menu=2:kettei=0:goto *Ranking
+	if menu=3:kettei=0:goto *option
+	if menu=4:kettei=0:goto *kanzenexit
+
+	
+	;morry-=2
+	morrx+=4
+	if morrx>= 150:morry-=4:morrf=1:morehasiri=0
+	fps=d3getfps()
+	if waitkaunt<=0:waitkaunt=0
+
+	mm_await waitkaunt
+	await 1
+//----------------------------
+	redraw 1
+	if morry >= -120:goto *titleloop
+	
+//----------------------------面初期設定
+*Stagestart2
+	morrx=0:morry=0:morrf=0
+	menu=0
+	kettei=0
+	cls
+	mes "Now loading"
+	mci "close stgBgm"
+	
+	if stage=1:mci "open data/music/stage1.mid alias stgBgm":kyokumei="Orange Blossom Special";dmplay 0, 4
+	if stage=2:dmplay 0, 6:kyokumei="Jerusalem Ridge"
+	if stage=3:mmplay 15:kyokumei="Orange Blossom Special Arrange"
+
+	mci "play stgBgm"
+	mx=160:my=440
+	mapy=0
+	if stage=2:mapx=-100
+	; カメラ座標を↓向きに
+	d3setcam 0,0,10,0,0,0
+
+//----------------------------エネミーシーケンス読み込み
+	bload "stage"+stage+".dat",enemydate
+	notesel enemydate
+	sdim one,20,notemax
+	sdim enemyline,20,notemax	
+	csvline=""
+	repeat notemax
+		noteget one,cnt
+		csvnote csvline,one
+		enemyline.cnt=csvline
+	loop
+	gsel 0
+
+	if stage=3:goto *stage3loop
+//--------------------------------------------------------メインループ始まり
+	mci "set stgBgm time format song pointer"
+*mainloop
+
+	
+	mci "status bosBgm position" : position=stat
+
+	ct++
+	frame+=1
+	
+	redraw 0
+
+	gosub *backg_screen
+	color 0,0,0
+	boxf 350,0,440,440
+	
+	gosub *write_stage
+	gosub *keychk
+	
+	gosub *write_status
+	gosub *write_mychar
+	gosub *put_shot
+	gosub *call_enemy
+	
+	gosub *object_move
+	
+	if hissatuf=1:gosub *moreta_wapon
+	if hissatuf=2:gosub *moreta_wapon2
+	if morerl=1:gosub *moreta_wapon2_2
+
+	if drawhantei=1{
+			color 255, 0, 0
+			boxf mycharcenterx, mycharcentery, mycharcenterx+mycharuppery, mycharcentery+mycharRightx
+			boxf mycharcenterx, mycharcentery, mycharcenterx+mycharuppery, mycharcentery-mycharRightx
+			boxf mycharcenterx, mycharcentery, mycharcenterx-mycharuppery, mycharcentery-mycharRightx
+			boxf mycharcenterx, mycharcentery, mycharcenterx-mycharuppery, mycharcentery+mycharRightx
+	}
+
+	gosub *hitchk
+
+
+	redraw 1
+	
+//----------------------------ＦＰＳ取得＆調整
+	fps=d3getfps()
+	sumfps+=fps
+	heikinfps=(sumfps/frame)*1000
+	if waitkaunt<=0.0:waitkaunt=0
+
+	mm_await waitkaunt
+	await 0
+//----------------------------
+	if life<=0&mutekif=2:redraw 0:goto *q_continue
+	goto *mainloop
+
+*backg_screen
+//----------------------------背景描画
+
+		color 0,0,0
+		boxf 0,0,400,500
+	if stage=1{
+		pos 0,mapy:gcopy 6,0,0,352,440
+		pos 0,mapy-440:gcopy 6,0,0,352,440
+	
+		mapy+=1
+		if mapy>=440:mapy=0
+	
+		if frame\50=0{
+			repeat tmax
+				if tf.cnt>0 :continue							;空きフラグを探
+				rrr=rnd(350)		
+				rr2=rnd(5)
+				eh+
+				eh2.cnt=90										;向かう角度を求める
+				tf.cnt=1										;フラグオン
+				tc.cnt=255										;色
+				ts.cnt=11
+				tx.cnt=rrr*1000 :ty.cnt=0*1000			;位置に弾発生(1000倍）
+				txv.cnt=cosa(eh2.cnt)/4+rr2 : tyv.cnt=sina(eh2.cnt)/4+rr2	;移動方
+	
+				//当たり判定の範囲
+				hitchklenghx.cnt=0
+				hitchklenghy.cnt=0
+		
+				//中心座標用加算変数
+				tcplusx.cnt=0
+				tcplusy.cnt=0
+				
+				if eh=1 : eh=0 : break							;1つだしてループを抜ける
+			loop
+		}
+	}
+	if stage=2{
+		pos mapx,mapy:gcopy 10,0,0,575,440
+		pos mapx,mapy-440:gcopy 10,0,0,575,440
+	
+		mapy+=1
+		if mapy>=440:mapy=0
+	}
+	if stage=3{
+
+		if frame\2=0{
+			
+			repeat tmax
+					if utyusenf=1:break
+					if tf.cnt>0 :continue							;空きフラグを探
+					
+					rrr=rnd(350)
+					if tiky>=150&tiky<=320:rrr=rnd(440)
+					rr2=rnd(3)
+					eh+
+					eh2.cnt=90										;向かう角度を求める
+						if tiky>=150&tiky<=320:eh2.cnt=0
+					tf.cnt=1										;フラグオン
+					tc.cnt=0										;色
+					ts.cnt=29
+					tx.cnt=rrr*1000 :ty.cnt=0*1000			;位置に弾発生(1000倍）
+					if tiky>=150&tiky<=320:tx.cnt=0*1000 :ty.cnt=rrr*1000			;位置に弾発生(1000倍）
+					txv.cnt=cosa(eh2.cnt)/(1+rr2) : tyv.cnt=sina(eh2.cnt)/(1+rr2)	;移動方
+					if moretaspeed=5:txv.cnt=cosa(eh2.cnt)*(1+rr2) : tyv.cnt=sina(eh2.cnt)*(1+rr2)
+			
+					//当たり判定の範囲
+					hitchklenghx.cnt=0
+					hitchklenghy.cnt=0
+			
+					//中心座標用加算変数
+					tcplusx.cnt=0
+					tcplusy.cnt=0
+					
+					if eh=1 : eh=0 : break							;1つだしてループを抜ける
+				loop
+			}
+		
+		mapy+=1:tikyuzoom+=2:
+		if frame\4=0:tiky+=1
+		gmode 2,265,265
+		pos 120+yokyu,300+tiky-300
+			grotate 12,355,0,tikyukaiten,(467)-tikyuzoom,(467)-tikyuzoom
+			if tiky>=150&tiky<=320:tikyukaiten-=0.01:tiky+=1:yokyu+=1
+			if tiky>=320:moretaspeed=5:tiky+=4
+
+		notesel enemyline.turn
+		noteget enemyname,0
+		
+		if vman2f=1{
+			if frame\10=0:dosey+=1
+			pos 200,dosey:gmode 2,128,150
+			grotate 12,400,267,0,128,153
+			if dosey>=440:vman2f=0
+		}
+		if utyusenf2=1{
+			pos 15,utyusy2:gmode 2,355,440
+			gcopy 13,355,0,355,440
+			pos 15,utyusy2-440:gmode 2,355,440
+			gcopy 13,355,0,355,440
+			utyusy2+=5
+			if utyusy2>=440:utyusy2=0
+		}
+		if utyusenf=1{
+			pos 0,utyusy:gmode 1,84,440
+			gcopy 13,0,0,84,440
+			pos 263,utyusy:gmode 1,84,440
+			gcopy 13,263,0,90,440
+			pos 0,utyusy-440:gmode 1,84,440
+			gcopy 13,0,0,84,440
+			pos 263,utyusy-440:gmode 1,84,440
+			gcopy 13,263,0,90,440
+			utyusy+=15
+			if utyusy>=440:utyusy=0:utyusenf2=1
+		}
+		
+		if tikyuzoom>=200{
+			tikyuzoom=199
+			hosis=rnd(10)
+			randomize
+			if hosis<1:hosis=5
+			if frame\hosis=0&haikeihosi=0{
+				repeat tmax
+					
+					if tf.cnt>0 :continue							;空きフラグを探
+					
+					rrr=rnd(350)
+					if tiky>=150&tiky<=320:rrr=rnd(440)
+					rr2=rnd(3)
+					eh+
+					eh2.cnt=90										;向かう角度を求める
+					if tiky>=150&tiky<=320:eh2.cnt=0
+					tf.cnt=1										;フラグオン
+					tc.cnt=rr2										;色
+					ts.cnt=28
+					tx.cnt=rrr*1000 :ty.cnt=0*1000			;位置に弾発生(1000倍）
+					if tiky>=150&tiky<=320:tx.cnt=0*1000 :ty.cnt=rrr*1000			;位置に弾発生(1000倍）
+					txv.cnt=cosa(eh2.cnt)/(1+rr2) : tyv.cnt=sina(eh2.cnt)/(1+rr2)	;移動方
+					if moretaspeed=5:txv.cnt=cosa(eh2.cnt)*(3+rr2) : tyv.cnt=sina(eh2.cnt)*(3+rr2)
+				
+		
+					//当たり判定の範囲
+					hitchklenghx.cnt=0
+					hitchklenghy.cnt=0
+			
+					//中心座標用加算変数
+					tcplusx.cnt=0
+					tcplusy.cnt=0
+					
+					if eh=1 : eh=0 : break							;1つだしてループを抜ける
+				loop
+			}
+		}
+		if mapy>=440:mapy=0
+	}
+	if stage=4{
+		if utyusenf2=1{
+			pos 15,utyusy2:gmode 2,355,440
+			gcopy 13,355,0,355,440
+			pos 15,utyusy2-440:gmode 2,355,440
+			gcopy 13,355,0,355,440
+			if frame\4=0:utyusz+=1
+			if utyusz>=5:utyusz=5
+			utyusy2+=5-utyusz
+			if utyusy2>=440:utyusy2=0
+		}
+		if utyusenf=1{
+			pos 0,utyusy:gmode 1,84,440
+			gcopy 13,0,0,84,440
+			pos 263,utyusy:gmode 1,84,440
+			gcopy 13,263,0,90,440
+			pos 0,utyusy-440:gmode 1,84,440
+			gcopy 13,0,0,84,440
+			pos 263,utyusy-440:gmode 1,84,440
+			gcopy 13,263,0,90,440
+			if frame\4=0:utyusz2+=1
+			if utyusz2>=15:utyusz2=15
+			utyusy+=15-utyusz2
+			if utyusy>=440:utyusy=0:utyusenf2=1
+		}
+	}
+	if stage=5{
+		if utyusenf2=1{
+			pos 15,utyusy2:gmode 2,355,440
+			gcopy 13,355,0,355,440
+			pos 15,utyusy2-440:gmode 2,355,440
+			gcopy 13,355,0,355,440
+			if frame\4=0:utyusz+=1
+			if utyusz>=5:utyusz=5
+			utyusy2+=5-utyusz
+			if utyusy2>=440:utyusy2=0
+		}
+		if utyusenf=1{
+			pos 0,utyusy:gmode 1,84,440
+			gcopy 13,0,0,84,440
+			pos 263,utyusy:gmode 1,84,440
+			gcopy 13,263,0,90,440
+			pos 0,utyusy-440:gmode 1,84,440
+			gcopy 13,0,0,84,440
+			pos 263,utyusy-440:gmode 1,84,440
+			gcopy 13,263,0,90,440
+			if frame\4=0:utyusz2+=1
+			if utyusz2>=15:utyusz2=15
+			utyusy+=15-utyusz2
+			if utyusy>=440:utyusy=0:utyusenf2=1
+		}
+	}
+	if stage=6{
+
+		if frame\2=0{
+			
+			repeat tmax
+					
+					if tf.cnt>0 :continue							;空きフラグを探
+					
+					rrr=rnd(350)
+					if tiky>=150&tiky<=320:rrr=rnd(440)
+					rr2=rnd(3)
+					eh+
+					eh2.cnt=90										;向かう角度を求める
+						if tiky>=150&tiky<=320:eh2.cnt=0
+					tf.cnt=1										;フラグオン
+					tc.cnt=0										;色
+					ts.cnt=29
+					tx.cnt=rrr*1000 :ty.cnt=0*1000			;位置に弾発生(1000倍）
+					if tiky>=150&tiky<=320:tx.cnt=0*1000 :ty.cnt=rrr*1000			;位置に弾発生(1000倍）
+					txv.cnt=cosa(eh2.cnt)/(1+rr2) : tyv.cnt=sina(eh2.cnt)/(1+rr2)	;移動方
+					if moretaspeed=5:txv.cnt=cosa(eh2.cnt)*(1+rr2) : tyv.cnt=sina(eh2.cnt)*(1+rr2)
+			
+					//当たり判定の範囲
+					hitchklenghx.cnt=0
+					hitchklenghy.cnt=0
+			
+					//中心座標用加算変数
+					tcplusx.cnt=0
+					tcplusy.cnt=0
+					
+					if eh=1 : eh=0 : break							;1つだしてループを抜ける
+				loop
+			}
+		
+		mapy+=1:tikyuzoom+=2:
+		if frame\4=0:tiky+=1
+		gmode 2,265,265
+		pos 120+yokyu,300+tiky-300
+			grotate 12,355,0,tikyukaiten,(467)-tikyuzoom,(467)-tikyuzoom
+			if tiky>=150&tiky<=320:tikyukaiten-=0.01:tiky+=1:yokyu+=1
+			if tiky>=320:moretaspeed=5:tiky+=4
+
+		notesel enemyline.turn
+		noteget enemyname,0
+		
+		if vman2f=1{
+			if frame\10=0:dosey+=1
+			pos 200,dosey:gmode 2,128,150
+			grotate 12,400,267,0,128,153
+			if dosey>=440:vman2f=0
+		}
+		if utyusenf2=1{
+			pos 15,utyusy2:gmode 2,355,440
+			gcopy 13,355,0,355,440
+			pos 15,utyusy2-440:gmode 2,355,440
+			gcopy 13,355,0,355,440
+			utyusy2+=5
+			//if utyusy2>=440:utyusy2=0
+		}
+		if utyusenf=1{
+			pos 0,utyusy:gmode 1,84,440
+			gcopy 13,0,0,84,440
+			pos 263,utyusy:gmode 1,84,440
+			gcopy 13,263,0,90,440
+			pos 0,utyusy-440:gmode 1,84,440
+			gcopy 13,0,0,84,440
+			pos 263,utyusy-440:gmode 1,84,440
+			gcopy 13,263,0,90,440
+			utyusy+=5
+			//if utyusy>=440:utyusy=0:utyusenf2=1
+		}
+		
+		if tikyuzoom>=200{
+			tikyuzoom=199
+			hosis=rnd(10)
+			randomize
+			if hosis<1:hosis=5
+			if frame\hosis=0&haikeihosi=0{
+				repeat tmax
+					
+					if tf.cnt>0 :continue							;空きフラグを探
+					
+					rrr=rnd(350)
+					if tiky>=150&tiky<=320:rrr=rnd(440)
+					rr2=rnd(3)
+					eh+
+					eh2.cnt=90										;向かう角度を求める
+					if tiky>=150&tiky<=320:eh2.cnt=0
+					tf.cnt=1										;フラグオン
+					tc.cnt=rr2										;色
+					ts.cnt=28
+					tx.cnt=rrr*1000 :ty.cnt=0*1000			;位置に弾発生(1000倍）
+					if tiky>=150&tiky<=320:tx.cnt=0*1000 :ty.cnt=rrr*1000			;位置に弾発生(1000倍）
+					txv.cnt=cosa(eh2.cnt)/(1+rr2) : tyv.cnt=sina(eh2.cnt)/(1+rr2)	;移動方
+					if moretaspeed=5:txv.cnt=cosa(eh2.cnt)*(3+rr2) : tyv.cnt=sina(eh2.cnt)*(3+rr2)
+				
+		
+					//当たり判定の範囲
+					hitchklenghx.cnt=0
+					hitchklenghy.cnt=0
+			
+					//中心座標用加算変数
+					tcplusx.cnt=0
+					tcplusy.cnt=0
+					
+					if eh=1 : eh=0 : break							;1つだしてループを抜ける
+				loop
+			}
+		}
+		if mapy>=440:mapy=0
+	}
+	return
+*write_stage
+//----------------------------ステージ表示
+
+
+	if stage=1{
+		if titlex>=440:return
+		color 255,255,255
+		pos titlex,100:font "MS ゴシック",30:mes "Stage1"
+		titlex+=1
+	
+	//この設定で、パーティクルを２Ｄで使える
+	//	gmode 5,,,255
+	//	d3setcam 0,0,450,0,0,0
+	//	d3particle 1,-100+220,-titlex+220,0,10
+	//				,-y座標+220,-x座標+220
+	
+		if titlex>=50:return
+		my-=3
+	}
+
+	if stage=2{
+		if titlex>=440:return
+		color 255,255,255
+		pos titlex,100:font "MS ゴシック",30:mes "Stage2"
+		titlex+=1
+		if titlex>=50:return
+		my-=3
+	}
+	
+	if stage=3{
+		if titlex>=440:return
+		color 255,255,255
+		pos titlex,100:font "MS ゴシック",30:mes "Stage3"
+		titlex+=1
+		if titlex>=50:return
+		my=300
+	}
+	return
+*keychk
+//----------------------------キーチェック
+	if mutekif=1:return
+
+	if replayf=0{
+		//stick keyon,2+8+4+1+16
+		getick
+		keyon=stat
+		poke replay,frame,keyon
+	}
+	if replayf=1{
+		getick
+		memcpy keyon,replay,1,0,frame
+	}
+	
+	
+	ido=4
+	syatei=1
+	if keyon&16:ido=2:syatei=2
+	
+	if kaiwaf>=1{
+		if keyon&32{
+			kaiwaf+=1
+		}
+	}
+	
+	if keyon&2{
+		if my>=0:my-=ido
+	}
+	if keyon&8{
+		if my<=395:my+=ido
+	}
+	if keyon&4{
+		if mx<=310:mx+=ido
+		if stage=2&mx<=310:mapx-=1:mapx=limit(mapx,-200,200)
+	}
+	if keyon&1{
+		if mx>=0:mx-=ido
+		if stage=2&mx>=0:mapx+=1:mapx=limit(mapx,-200,200)
+	}
+	
+	if keyon&64{
+		if kasurikaunter>=500{
+			hissatuf=1
+			disBullet(10)		//moretamoduleのdisBullet呼び出し
+			ds_play 8
+		}
+	}
+	if keyon&128{
+		if kasurikaunter>=1500{
+			hissatuf=2
+			disBullet(10)		//moretamoduleのdisBullet呼び出し
+			ds_play 8
+		}
+	}
+	stick jijiji,128
+	if jijiji&128:gosub *gameovmae
+	if keyon=255:goto *gameov
+	
+
+	return
+*write_status
+//----------------------------ステータス表示
+
+	font "MS ゴシック",16
+	color 255,255,255
+	line 350,0,350,440
+	pos 350,0:mes "Hiscore"
+	pos 355,20:mes hiscorelineint(0)
+	pos 350,40:mes "Score"
+	pos 355,60:mes score
+	pos 355,80:mes "life"
+	pos 350,150:mes "ShotItem:"+shotpower
+	
+	if shotpower\30=0&shotpower!0{
+		if shotpower>=120:ds_play 7:life+=1:shotpower=0
+		
+		shotlv+=1
+		shotpower+=1
+		if shotlv>=3:shotlv=4
+		if shotlv<=3:dansu+=2:ds_play 7
+	}
+	
+	pos 350,160:if shotlv<=2:mes "ShotLv:"+shotlv
+				if shotlv>=4:mes "Shotlv:MAX"
+
+	pos 355,200:mes "FPS="+fps
+
+				mes "Wait="+waitkaunt
+				mes "Object:"+sonzai
+				mes "Kasuri="+kasurikaunter
+				;mes "Frame="+frame
+
+				mes "平均FPS:"+(heikinfps/1000)
+				mes position
+				mes ct
+	color 0,0,0
+	pos 0,0:mes "♪"+kyokumei
+	color 255,255,255
+	pos -1,-1:mes "♪"+kyokumei
+
+	//ライフがゼロなら表示無
+	color 255,255,255
+	
+	;if replayf=1:pos 355,100:mes "Replay Mode":return
+	if life<=0:return
+	repeat life
+	pos 355+5*cnt,100:mes "|"
+	loop
+
+	return
+*write_mychar
+	if mutekif=0:gmode 2,40,30,
+	if mutekif=1:gmode 2,40,30,
+	if mutekif>=2{
+		if frame\5=1:gmode 5,,,200:else:gmode 2,40,30
+		mutekif+=1
+		if mutekif>=100:mutekif=0
+	}
+	pos mx,my:gcopy 3,0,0,40,30
+	gmode 2,10,17
+	
+	pos mx+1,my+10:gcopy 3,jetx2,32,10,17
+	pos mx+25,my+10:gcopy 3,jetx2,32,10,17
+	
+	if shotlv>3{
+		aktenz+=1.0
+		gmode 2,15,15
+		pos mx+60,my+15
+		grotate 5,17,103,aktenz,15,15
+		pos mx-20,my+15
+		grotate 5,17,103,aktenz,15,15
+		if utta3=1:uttakaunter3+=1
+		if uttakaunter3>=5:utta3=0:uttakaunter3=0
+		
+		hassyaxoption=mx+60
+		hassyaxoption2=mx-20
+		
+		repeat maxdansu
+				if shotdasuna=1:break
+				if utta3=1:break
+				if shotf.cnt>0 :continue									;空きフラグを探す
+				hassyaxoption3=hassyaxoption
+				if frame\2=0:hassyaxoption3=hassyaxoption2
+				
+				eh+
+				eh3.cnt=270
+				shotf.cnt=1												;フラグをオンにする	
+				shotx.cnt=(hassyaxoption3)*1000: shoty.cnt=(my+10)*1000		;位置に弾発生(1000倍）
+				shotxv.cnt=cosa(eh3.cnt)*sp : shotyv.cnt=sina(eh3.cnt)*sp			;移動方向
+				ShotHitx=1
+				ShotHity=11
+				utta3=1
+				if eh=1 : eh=0 : break									;1発発射してループを抜ける	
+					
+		loop
+		}
+	if moretaspeed=5{
+			color 0,0,0
+			//パーティクルをつかう
+			gmode 5,,,150
+			d3setcam 0,0,450,0,0,0
+			d3particle 1,-(my+20)+205,-(mx+30)+220,0,35-(frame\2*10)
+			d3particle 1,-(my+20)+205,-(mx+1)+220,0,35-(frame\2*10)
+			gmode 2,,
+		}
+
+	//自機の中心座標
+	mycharcenterx=mx+18
+	mycharcentery=my+15
+	//当たり判定範囲
+	mycharuppery=2
+	mycharRightx=2
+	//カスリの判定範囲
+	kasury=15
+	kasurx=20
+	
+	return
+*put_shot
+	if shotdasuna=1:return
+	if utta=1:uttakaunter+=1
+	if uttakaunter>=6:utta=0:uttakaunter=0
+	if utta=1:return
+	
+
+	repeat dansu
+		gdansu=cnt
+		
+		repeat maxdansu
+				
+			if shotf.cnt>0 :continue									;空きフラグを探す
+			eh+
+			
+	//発射位置を動かし、移動方向を設定
+			if gdansu\2=0{
+				shotxmove=0
+				eh3.cnt=270-(gdansu/syatei)
+			}else{
+				shotxmove=10
+				eh3.cnt=270+(gdansu/syatei)
+			}
+
+			shotf.cnt=1												;フラグをオンにする
+		
+			shotx.cnt=(mx+14+shotxmove)*1000: shoty.cnt=my*1000		;位置に弾発生(1000倍）
+			shotxv.cnt=cosa(eh3.cnt)*sp : shotyv.cnt=sina(eh3.cnt)*sp			;移動方向
+			if eh=1 : eh=0 : break									;1発発射してループを抜ける	
+			
+		loop
+		
+	loop
+		ShotHitx=1
+		ShotHity=11
+		utta=1
+return
+*moreta_wapon
+	if kasurikaunter<500:hissatuf=0:return
+
+		
+		ShotHitx=1
+		ShotHity=11
+
+	if waponx>=-400{
+		sparkan+=1
+		color 255,255,255
+		pos waponx,220
+		gmode 2,51,44
+		gcopy 3,90,48,51,44
+		pos 60,220:font "MS　ゴシック",30
+		;mes "もれ太スパーク！！"
+		gmode 2,282,59
+		gcopy 19,0,0,282,59
+		waponx-=10
+	}
+	if sparkan=40{
+		repeat 2
+		wcnt=cnt
+			repeat maxdansu
+					
+				if shotf.cnt>0 :continue									;空きフラグを探す
+				eh+
+				if wcnt=0:rand=0
+				if wcnt=1:rand=180
+				eh3.cnt=rand
+				shotf.cnt=2												;フラグをオンにする	
+				shotx.cnt=(mx+14+shotxmove)*1000: shoty.cnt=my*1000		;位置に弾発生(1000倍）
+				shotxv.cnt=cosa(eh3.cnt)*sp : shotyv.cnt=sina(eh3.cnt)*sp			;移動方向
+				ShotHitx=1
+				ShotHity=11
+				if eh=1 : eh=0 : break									;1発発射してループを抜ける	
+				
+			loop
+		loop
+		score -=10000
+		sparkan=0
+	}
+	if waponx<=0:waponx=440:hissatuf=0:kasurikaunter-=500
+	ShotHitx=1
+		ShotHity=11
+	return
+*moreta_wapon2
+	
+	if kasurikaunter<1500:hissatuf=0:return
+
+		if shotdasuna!1 & sens=0:disBullet(10)
+	
+
+	if waponx2>=-400{
+		endakan+=1
+		morerl=1
+		color 255,255,255
+		pos waponx2,220
+		gmode 2,51,44
+		gcopy 3,90,48,51,44
+		pos 60,220:font "MS　ゴシック",30
+		;mes "パーフェクト・モレール!"
+		gmode 2,270,63
+		gcopy 20,0,0,270,63
+		waponx2-=10
+		
+	
+	}
+	if waponx2<=0:waponx2=440:hissatuf=0:kasurikaunter-=1500
+
+	if endakan=40{
+
+		if dansu!60:motodansu=dansu
+		dansu=60
+		endakan=0
+		score -= 100000
+	}
+	
+
+	return
+*moreta_wapon2_2
+	wapon2kaun+=1
+	if wapon2kaun>=600:dansu=motodansu:wapon2kaun=0:morerl=0
+	if shotdasuna!1&sens=0:disBullet(10)		//moretamoduleのdisBullet呼び出し
+
+	return
+*call_enemy
+	//ターンに応じて配列からデータを取り込む
+	notesel enemyline.turn
+	noteget enemyname,0
+	
+	//処理分岐
+	if ( enemyname = "sleep" ) : gosub *sleeping
+	if ( enemyname = "kaiwa1" ) : gosub *k1
+	if ( enemyname = "kaiwa2" ) : gosub *k2
+	if enemyname="kaiwa3":disBullet(10):gosub *k3
+	if enemyname="kaiwa4":disBullet(10):gosub *k4
+	if enemyname="kaiwa5":disBullet(10):gosub *k5
+	if enemyname="kaiwa6":disBullet(10):gosub *k6
+	if enemyname="kaiwa7":disBullet(10):gosub *k7
+	if enemyname="kaiwa8":disBullet(10):gosub *k8
+	if enemyname="kaiwa9":disBullet(10):gosub *k9
+	if enemyname="kaiwa10":disBullet(10):gosub *k10
+	if enemyname="kaiwa11":disBullet(10):gosub *k11
+	if enemyname="kaiwa12":disBullet(10):gosub *k12
+	if enemyname="kaiwa13":disBullet(10):gosub *k13
+	if enemyname="kaiwa14":disBullet(10):gosub *k14
+	if enemyname="kaiwa15":disBullet(10):gosub *k15
+	if enemyname="kaiwa16":disBullet(10):gosub *k16
+	if enemyname="kaiwa17":disBullet(10):gosub *k17
+	if enemyname="kaiwa18":disBullet(10):gosub *k18
+	if enemyname="kaiwa19":disBullet(10):gosub *k19
+	if enemyname="kaiwa20":disBullet(10):gosub *k20
+	if enemyname="cla1":gosub *stagecla1
+	if enemyname="cla2":gosub *stagecla2
+	if enemyname="cla3":gosub *stagecla3
+	if enemyname="stop":gosub *teisi
+	if enemyname="stop2":gosub *teisi2
+	if enemyname="enemy1":gosub *put_enemy1
+	if enemyname="enemy2":gosub *put_enemy2
+	if enemyname="enemy3":gosub *put_enemy3
+	if enemyname="enemy4":gosub *put_enemy4
+	if enemyname="enemy5":gosub *put_enemy5
+	if enemyname="enemy6":gosub *put_enemy6
+	if enemyname="enemy7":gosub *put_enemy7
+	if enemyname="enemy8":gosub *put_enemy8
+	if enemyname="enemy9":gosub *put_enemy9
+	if enemyname="enemy10":gosub *put_enemy10
+	if enemyname="enemy11":gosub *put_enemy11
+	if enemyname="enemy12":gosub *put_enemy12
+	if enemyname="enemy13":gosub *put_enemy13
+	if enemyname="enemy14":gosub *put_enemy14
+	if enemyname="enemy15":gosub *put_enemy15
+	if enemyname="midle1":gosub *midle1
+	if enemyname="boss1":gosub *boss1
+	if enemyname="boss2":gosub *boss2
+	if enemyname="fannel":gosub *fanel
+	if enemyname="midle2":gosub *midle2
+	if enemyname="midle3":gosub *midle3
+	if enemyname="gochain":gosub *chainput
+
+	if enemyname="uty":gosub *utyusenhail
+	if enemyname="chain":gosub *chain
+
+	if( enemyname = "sen1" ): gosub *sen1
+	if( enemyname = "sen2" ): gosub *sen2
+	if( enemyname = "vman3"): gosub *vman3
+	if( enemyname = "cannon"):cannon = 1 : turn += 1 :mmstop
+
+	;if enemyname="toil":gosub *stagecla3
+		
+	return
+*toila
+	noteget exa,1
+	noteget eya,2
+	
+	//敵発生
+
+	repeat tmax
+		if tf.cnt>0 {continue} if dis.cnt>0 {continue}							;空きフラグを探す
+		eh+
+		eh2.cnt=90										;向かう角度を求める
+		tf.cnt=1										;フラグオン
+		tc.cnt=255										;色
+		
+		ts.cnt=60										;敵フラグをオン
+		
+		tx.cnt=int(exa)*1000 :ty.cnt=int(eya)*1000			;位置に弾発生(1000倍）
+		txv.cnt=0 : tyv.cnt=0	;移動方向
+
+		//当たり判定の範囲
+		hitchklenghx.cnt=23
+		hitchklenghy.cnt=23
+
+		//中心座標用加算変数
+		tcplusx.cnt=12
+		tcplusy.cnt=12
+		
+		if eh=1 : eh=0 : break							;1つ出現さしてループを抜ける
+	loop
+
+	turn+=1
+	
+	return
+*chain
+	turn+=1
+	chainf=1
+	stage=4
+	return
+
+*k1
+	if kaiwaf=0:kaiwaf=1
+
+	if kaiwaf=1{
+		pos 0,440-kaiwakaunter:gmode 4,,,200
+		if kaiwakaunter>=140:pos 0,300
+		gcopy 8,0,0,369,121
+		
+		pos 10,450-kaiwakaunter:gmode 1,,,
+		if kaiwakaunter>=140:pos 10,310
+		gcopy 8,0,123,80,99
+
+		
+		if kaiwakaunter>=140{
+			color 255,255,255
+			pos 100,310
+			mes "通信士\n\nわが軍の領内にUNKNOWN機が進入！"
+		}
+		kaiwakaunter+=10
+	}
+	
+	if kaiwaf=2{
+		gmode 4,,,200
+		pos 0,300
+		gcopy 8,0,0,369,121
+		
+		gmode 1,,,
+		pos 10,310
+		gcopy 8,0,123,80,99
+
+		pos 100,310
+		mes "通信士\n\n機体確認信号に答えません！\n隊長！どうしますか！？"
+		
+	}
+	if kaiwaf=3{
+		gmode 4,,,200
+		pos 0,300
+		gcopy 8,0,0,369,121
+		
+		gmode 1,,,
+		pos 10,310
+		gcopy 8,82,123,80,99
+				
+		pos 100,310
+		mes "隊長\n\n全員、攻撃の用意!\n\n抵抗した場合は撃墜してもかまわん！"
+		
+	}
+	if kaiwaf=4{
+		gmode 4,,,200
+		pos 0,300
+		gcopy 8,0,0,369,121
+		
+		gmode 2,,,
+		pos 10,310
+		gcopy 3,90,48,51,44
+		
+		
+		pos 100,310
+		mes "もれ太\n\nトイレは何処かしら・・"
+		
+	}
+	if kaiwaf=5{
+		gmode 4,,,200
+		pos 0,300
+		gcopy 8,0,0,369,121
+		
+		pos 10,310:gmode 2,,,
+		gcopy 3,90,48,51,44
+		
+		pos 100,310
+		mes "もれ太\n\nくそ、じゃまする奴はうち落としてやるっ"
+		
+	}
+	if kaiwaf=6{
+		kaiwaf=0
+		turn+=1
+		kaiwakaunter=0
+	}
+
+	return
+*k2
+	if kaiwaf=0:kaiwaf=1
+
+	if kaiwaf=1{
+		
+		pos 0,440-kaiwakaunter:gmode 4,,,200
+		if kaiwakaunter>=140:pos 0,300
+		gcopy 8,0,0,369,121
+		
+		pos 10,450-kaiwakaunter:gmode 1,,,
+		if kaiwakaunter>=140:pos 10,310
+		gcopy 8,0,123,80,99
+
+		
+		if kaiwakaunter>=140{
+			pos 100,310
+			mes "通信士\n\n防衛線を突破されました！"
+		}
+		kaiwakaunter+=10
+		dmstop 4
+	}
+	
+	if kaiwaf=2{
+		gmode 4,,,200
+		pos 0,300
+		gcopy 8,0,0,369,121
+		
+		gmode 1,,,
+		pos 10,310
+		gcopy 8,82,123,80,99
+				
+		pos 100,310
+		mes "隊長\n\nなんということだ・・。\n'NOSTRA'を出動させろ！"
+		
+		
+	}
+	if kaiwaf=3{
+		gmode 4,,,200
+		pos 0,300
+		gcopy 8,0,0,369,121
+		
+		gmode 1,,,
+		pos 10,310
+		gcopy 8,82,123,80,99
+				
+		pos 100,310
+		mes "隊長\n\nしかし、奴の目的は\n何なんだ・・・？"
+		
+	}
+	if kaiwaf=4{
+		gmode 4,,,200
+		pos 0,300
+		gcopy 8,0,0,369,121
+		
+		gmode 2,,,
+		pos 10,310
+		gcopy 3,90,48,51,44
+		
+		
+		pos 100,310
+		mes "もれ太\n\nうートイレトイレ。"
+		
+	}
+
+	if kaiwaf=5{
+		kaiwaf=0
+		turn+=1
+		kaiwakaunter=0
+		//dmplay 0,2
+		mci "close stgBgm"
+		mci "open data/music/boss01a.mid alias bosBgm"
+		mci "play bosBgm"
+		kyokumei="El Cumbanchero"
+	}
+
+	return
+*k3
+	if kaiwaf=0:kaiwaf=1
+
+	if kaiwaf=1{
+		
+		pos 0,440-kaiwakaunter:gmode 4,,,200
+		if kaiwakaunter>=140:pos 0,300
+		gcopy 8,0,0,369,121
+		
+		pos 10,450-kaiwakaunter:gmode 1,,,
+		if kaiwakaunter>=140:pos 10,310
+		gcopy 8,82,123,80,99
+
+		
+		if kaiwakaunter>=140{
+			pos 100,310
+			mes "隊長\n\nまだまだ！ﾌｧﾝﾈﾙがのこっている！"
+		}
+		kaiwakaunter+=10
+	}
+	
+	if kaiwaf=2{
+		kaiwaf=0
+		turn+=1
+		kaiwakaunter=0
+		gook=1
+	}
+
+	return
+*k4
+	if kaiwaf=0:kaiwaf=1
+
+	if kaiwaf=1{
+		
+		pos 0,440-kaiwakaunter:gmode 4,,,200
+		if kaiwakaunter>=140:pos 0,300
+		gcopy 8,0,0,369,121
+		
+		pos 10,450-kaiwakaunter:gmode 1,,,
+		if kaiwakaunter>=140:pos 10,310
+		gcopy 8,0,123,80,99
+
+		
+		if kaiwakaunter>=140{
+			pos 100,310
+			mes "通信士\n\n全機撃墜されました！"
+		}
+		kaiwakaunter+=10
+		
+	}
+	
+	if kaiwaf=2{
+		gmode 4,,,200
+		pos 0,300
+		gcopy 8,0,0,369,121
+		
+		gmode 1,,,
+		pos 10,310
+		gcopy 8,82,123,80,99
+				
+		pos 100,310
+		mes "隊長\n\nな、なんだってーーーーーーー！！！"
+		
+		
+	}
+	if kaiwaf=3{
+		dmstop
+		ds_play 9
+		kaiwaf=0
+		turn+=1
+		kaiwakaunter=0
+	}
+
+	return
+*k5
+	if kaiwaf=0:kaiwaf=1
+
+	if kaiwaf=1{
+		
+		pos 0,440-kaiwakaunter:gmode 4,,,200
+		if kaiwakaunter>=140:pos 0,300
+		gcopy 8,0,0,369,121
+		
+		pos 10,450-kaiwakaunter:gmode 1,,,
+		if kaiwakaunter>=140:pos 10,310
+		gcopy 8,0,123,80,99
+		
+		if kaiwakaunter>=140{
+			pos 100,310
+			mes "通信士\n\n生物研究所へ向かってる模様です！"
+		}
+		kaiwakaunter+=10
+		
+	}
+	
+	if kaiwaf=2{
+		gmode 4,,,200
+		pos 0,300
+		gcopy 8,0,0,369,121
+		
+		gmode 1,,,
+		pos 10,310
+		gcopy 8,82,123,80,99
+				
+		pos 100,310
+		mes "隊長\n\nそうか・・\nだがあそこには\nスーパーモスキートが\n放ってある\n"
+		
+		
+	}
+		if kaiwaf=3{
+		gmode 4,,,200
+		pos 0,300
+		gcopy 8,0,0,369,121
+		
+		gmode 1,,,
+		pos 10,310
+		gcopy 8,82,123,80,99
+				
+		pos 100,310
+		mes "隊長\n\n生きて抜けることはできまい・・・。"
+		
+		
+	}
+	if kaiwaf=4{
+		kaiwaf=0
+		turn+=1
+		kaiwakaunter=0
+	}
+
+	return
+*k6
+	if kaiwaf=0:kaiwaf=1
+
+	if kaiwaf=1{
+		
+		pos 0,440-kaiwakaunter:gmode 4,,,200
+		if kaiwakaunter>=140:pos 0,300
+		gcopy 8,0,0,369,121
+		
+		pos 10,450-kaiwakaunter:gmode 1,,,
+		if kaiwakaunter>=140:pos 10,310
+		gcopy 5,37,29,26,33
+
+		
+		if kaiwakaunter>=140{
+			pos 100,310
+			mes "Ｖマン\n\nまてーい！"
+		}
+		kaiwakaunter+=10
+		
+	}
+	
+	if kaiwaf=2{
+		gmode 4,,,200
+		pos 0,300
+		gcopy 8,0,0,369,121
+		
+		gmode 2,,,
+		pos 10,310
+		gcopy 3,90,48,51,44
+		
+		
+		pos 100,310
+		mes "もれ太\n\nな、なんだ！？！？"
+		
+		
+	}
+		if kaiwaf=3{
+		gmode 4,,,200
+		pos 0,300
+		gcopy 8,0,0,369,121
+		
+		
+		gmode 1,,,
+		pos 10,310
+		gcopy 5,37,29,26,33
+				
+		pos 100,310
+		mes "Vマン\n\n俺が倒せるかな？\n倒せたらトイレに案内してやるよ"
+		
+		
+	}
+	if kaiwaf=4{
+		kaiwaf=0
+		turn+=1
+		kaiwakaunter=0
+		dmstop
+		mmplay 12
+		kyokumei="Cipple Cleek"
+	}
+
+	return
+*k7
+	if kaiwaf=0:kaiwaf=1
+
+	if kaiwaf=1{
+		
+		pos 0,440-kaiwakaunter:gmode 4,,,200
+		if kaiwakaunter>=140:pos 0,300
+		gcopy 8,0,0,369,121
+		
+		pos 10,450-kaiwakaunter:gmode 1,,,
+		if kaiwakaunter>=140:pos 10,310
+		gcopy 5,37,29,26,33
+
+		
+		if kaiwakaunter>=140{
+			pos 100,310
+			mes "Ｖマン\n\nすまん、急用ができた"
+		}
+		kaiwakaunter+=10
+		
+	}
+	
+	if kaiwaf=2{
+		gmode 4,,,200
+		pos 0,300
+		gcopy 8,0,0,369,121
+		
+		gmode 2,,,
+		pos 10,310
+		gcopy 3,90,48,51,44
+		
+		
+		pos 100,310
+		mes "もれ太\n\nてめええええええ\nふざけんなぁあああ！\nあああああああ！"
+		
+		
+	}
+		if kaiwaf=3{
+		gmode 4,,,200
+		pos 0,300
+		gcopy 8,0,0,369,121
+		
+		
+		gmode 1,,,
+		pos 10,310
+		gcopy 5,37,29,26,33
+				
+		pos 100,310
+		mes "Vマン\n\nシャバ憎には付き合ってられんわ。"
+		
+		
+	}
+	if kaiwaf=4{
+		kaiwaf=0
+		turn+=1
+		kaiwakaunter=0
+		mmstop
+		dmplay 0, 6
+		kyokumei="Jerusalem Ridge"
+	}
+
+	return
+*k8
+	if kaiwaf=0:kaiwaf=1
+
+	if kaiwaf=1{
+		
+		pos 0,440-kaiwakaunter:gmode 4,,,200
+		if kaiwakaunter>=140:pos 0,300
+		gcopy 8,0,0,369,121
+		
+		pos 10,450-kaiwakaunter:gmode 1,,,
+		if kaiwakaunter>=140:pos 10,310
+		gcopy 8,0,123,80,99
+		
+		if kaiwakaunter>=140{
+			pos 100,310
+			mes "通信士\n\nもうこうなったら、\nアレしかありませんね・・・"
+		}
+		kaiwakaunter+=10
+		
+	}
+	
+	if kaiwaf=2{
+		gmode 4,,,200
+		pos 0,300
+		gcopy 8,0,0,369,121
+		
+		gmode 1,,,
+		pos 10,310
+		gcopy 8,82,123,80,99
+				
+		pos 100,310
+		mes "隊長\n\nうむ・・\n生物兵器、[NEO-TENY]をだせ！！"
+		
+		
+	}
+		if kaiwaf=3{
+		gmode 4,,,200
+		pos 0,300
+		gcopy 8,0,0,369,121
+		
+		gmode 1,,,
+		pos 10,310
+		gcopy 8,82,123,80,99
+				
+		pos 100,310
+		mes "隊長\n\n貴様もネオテニーにしてやる！！"
+		
+		
+	}
+	
+	if kaiwaf=4{
+		kaiwaf=0
+		turn+=1
+		kaiwakaunter=0
+		
+		mmstop
+		kyokumei="Katy Hill"
+		
+	}
+
+	return
+*k9
+	if kaiwaf=0:kaiwaf=1
+
+	if kaiwaf=1{
+		
+		pos 0,440-kaiwakaunter:gmode 4,,,200
+		if kaiwakaunter>=140:pos 0,300
+		gcopy 8,0,0,369,121
+		
+		pos 10,450-kaiwakaunter:gmode 1,,,
+		if kaiwakaunter>=140:pos 10,310
+		gcopy 8,0,123,80,99
+		
+		if kaiwakaunter>=140{
+			pos 100,310
+			mes "通信士\n\nあ・・・・・\nこれは・・・"
+		}
+		kaiwakaunter+=10
+		
+	}
+	
+	if kaiwaf=2{
+		gmode 4,,,200
+		pos 0,300
+		gcopy 8,0,0,369,121
+		
+		gmode 1,,,
+		pos 10,310
+		gcopy 8,82,123,80,99
+				
+		pos 100,310
+		mes "隊長\n\nもういいよ！！\n帰る！！！！"
+		
+		
+	}
+		if kaiwaf=3{
+		gmode 4,,,200
+		pos 0,300
+		gcopy 8,0,0,369,121
+		
+		gmode 1,,,
+		pos 10,310
+		gcopy 8,0,123,80,99
+				
+		pos 100,310
+		mes "通信士\n\n・・・・"
+		
+		
+	}
+	if kaiwaf=4{
+		gmode 4,,,200
+		pos 0,300
+		gcopy 8,0,0,369,121
+		
+		gmode 2,,,
+		pos 10,310
+		gcopy 3,90,48,51,44
+		
+		
+		pos 100,310
+		mes "もれ太\n\nだめだ・・・\nもう地球にトイレはない。"
+	}
+	if kaiwaf=5{
+		gmode 4,,,200
+		pos 0,300
+		gcopy 8,0,0,369,121
+		
+		gmode 2,,,
+		pos 10,310
+		gcopy 3,90,48,51,44
+		
+		
+		pos 100,310
+		mes "もれ太\n\nそうだ・・・\n宇宙にならありそうだ。"
+	}
+	if kaiwaf=6{
+		kaiwaf=0
+		turn+=1
+		kaiwakaunter=0
+		
+		
+	}
+
+	return
+*k10
+	if kaiwaf=0:kaiwaf=1
+
+	if kaiwaf=1{
+		
+		pos 0,440-kaiwakaunter:gmode 4,,,200
+		if kaiwakaunter>=140:pos 0,300
+		gcopy 8,0,0,369,121
+		
+		pos 10,450-kaiwakaunter:gmode 1,,,
+		if kaiwakaunter>=140:pos 10,310
+		gcopy 8,82,123,80,99
+		
+		if kaiwakaunter>=140{
+			pos 100,310
+			color 255,255,255
+			mes "隊長\n\nついにわれわれの\n宇宙ステーションまで\nやってくるぞ！！"
+		}
+		kaiwakaunter+=10
+		
+	}
+	
+	if kaiwaf=2{
+		gmode 4,,,200
+		pos 0,300
+		gcopy 8,0,0,369,121
+		
+		gmode 1,,,
+		pos 10,310
+		gcopy 8,82,123,80,99
+				
+		pos 100,310
+		color 255,255,255
+		mes "隊長\n\n総員出撃！！なんとしても食い止めろ！！"
+		
+		
+	}
+		if kaiwaf=3{
+		gmode 4,,,200
+		pos 0,300
+		gcopy 8,0,0,369,121
+		
+		gmode 1,,,
+		pos 10,310
+		gcopy 8,0,123,80,99
+				
+		pos 100,310
+		color 255,255,255
+		mes "通信士\n\nなーんかもうだるくなってきた\nなあ・・"
+		
+		
+	}
+	if kaiwaf=4{
+		gmode 4,,,200
+		pos 0,300
+		gcopy 8,0,0,369,121
+		
+		gmode 2,,,
+		pos 10,310
+		gcopy 3,90,48,51,44
+		
+		
+		pos 100,310
+		color 255,255,255
+		mes "もれ太\n\nトイレが・・近づいている・・！！"
+	}
+	
+	if kaiwaf=5{
+		kaiwaf=0
+		turn+=1
+		kaiwakaunter=0
+		
+		
+	}
+
+	return
+*k11
+	if kaiwaf=0:kaiwaf=1
+
+	if kaiwaf=1{
+		
+		pos 0,440-kaiwakaunter:gmode 4,,,200
+		if kaiwakaunter>=140:pos 0,300
+		gcopy 8,0,0,369,121
+		
+		pos 10,450-kaiwakaunter:gmode 1,,,
+		if kaiwakaunter>=140:pos 10,310
+		gcopy 5,37,29,26,33
+
+		
+		if kaiwakaunter>=140{
+			pos 100,310
+			color 255,255,255
+			mes "Ｖマン\n\nハッハッハ。まっていたよ\nヤマトの諸君"
+		}
+		kaiwakaunter+=10
+		
+	}
+	
+	if kaiwaf=2{
+		gmode 4,,,200
+		pos 0,300
+		gcopy 8,0,0,369,121
+		
+		gmode 2,,,
+		pos 10,310
+		gcopy 3,90,48,51,44
+		
+		
+		pos 100,310
+		color 255,255,255
+		mes "もれ太\n\nき、きさま！"
+		
+		
+	}
+	if kaiwaf=3{
+		gmode 4,,,200
+		pos 0,300
+		gcopy 8,0,0,369,121
+		
+		
+		gmode 1,,,
+		pos 10,310
+		gcopy 5,37,29,26,33
+				
+		pos 100,310
+		color 255,255,255
+		mes "Vマン\n\nこないだはちょっと用事を思い出したが\n次はそうはいかないぜ"
+		
+		
+	}
+	if kaiwaf=4{
+		gmode 4,,,200
+		pos 0,300
+		gcopy 8,0,0,369,121
+		
+		gmode 2,,,
+		pos 10,310
+		gcopy 3,90,48,51,44
+		
+		
+		pos 100,310:color 255,255,255
+		mes "もれ太\n\n勝ったらトイレに案内してもらうぞ！"
+		
+		
+	}
+	if kaiwaf=5{
+		gmode 4,,,200
+		pos 0,300
+		gcopy 8,0,0,369,121
+		
+		
+		gmode 1,,,
+		pos 10,310
+		gcopy 5,37,29,26,33
+				
+		pos 100,310:color 255,255,255
+		mes "Vマン\n\nオッケーイ。"
+		
+		
+	}
+	if kaiwaf=6{
+		kaiwaf=0
+		turn+=1
+		kaiwakaunter=0
+		dmstop:mmstop
+		mmplay 14
+		vman2f=1
+		kyokumei="Cripple Cleek 2"
+	}
+	return
+*k12
+	if kaiwaf=0:kaiwaf=1
+
+	if kaiwaf=1{
+		
+		pos 0,440-kaiwakaunter:gmode 4,,,200
+		if kaiwakaunter>=140:pos 0,300
+		gcopy 8,0,0,369,121
+		
+		pos 10,450-kaiwakaunter:gmode 1,,,
+		if kaiwakaunter>=140:pos 10,310
+		gcopy 5,37,29,26,33
+
+		
+		if kaiwakaunter>=140{
+			pos 100,310
+			color 255,255,255
+			mes "Ｖマン\n\nやべえ！お布団ほしたまんま\nだった！！"
+			
+		}
+		kaiwakaunter+=10
+		
+	}
+	
+	if kaiwaf=2{
+		gmode 4,,,200
+		pos 0,300
+		gcopy 8,0,0,369,121
+		
+		gmode 2,,,
+		pos 10,310
+		gcopy 3,90,48,51,44
+		
+		
+		pos 100,310
+		color 255,255,255
+		mes "もれ太\n\nちょっ！トイレは！？！？"
+		
+		
+	}
+	if kaiwaf=3{
+		gmode 4,,,200
+		pos 0,300
+		gcopy 8,0,0,369,121
+		
+		
+		gmode 1,,,
+		pos 10,310
+		gcopy 5,37,29,26,33
+				
+		pos 100,310
+		color 255,255,255
+		mes "Vマン\n\nじゃっ！またな！"
+		
+		
+	}
+	if kaiwaf=4{
+		gmode 4,,,200
+		pos 0,300
+		gcopy 8,0,0,369,121
+		
+		gmode 2,,,
+		pos 10,310
+		gcopy 3,90,48,51,44
+		
+		
+		pos 100,310:color 255,255,255
+		font "MS ゴシック",30
+		mes "あいつを\n\nぜってーぶっころす"
+		
+		
+	}
+	
+	if kaiwaf=5{
+		kaiwaf=0
+		turn+=1
+		kaiwakaunter=0
+		dmstop:mmstop:mmplay 15
+		
+		kyokumei="Orange Blossom Special Arrange"
+	}
+	return
+*k13
+	if kaiwaf=0:kaiwaf=1
+
+	if kaiwaf=1{
+		
+		pos 0,440-kaiwakaunter:gmode 4,,,200
+		if kaiwakaunter>=140:pos 0,300
+		gcopy 8,0,0,369,121
+		
+		pos 10,450-kaiwakaunter:gmode 1,,,
+		if kaiwakaunter>=140:pos 10,310
+		gcopy 8,82,123,80,99
+		
+		if kaiwakaunter>=140{
+			pos 100,310
+			color 255,255,255
+			mes "隊長\n\nチェインガードを起動させる！\n通路をふさげ！！"
+		}
+		kaiwakaunter+=10
+		
+	}
+	
+	if kaiwaf=2{
+		gmode 4,,,200
+		pos 0,300
+		gcopy 8,0,0,369,121
+		
+		gmode 1,,,
+		pos 10,310
+		gcopy 8,0,123,80,99
+				
+		pos 100,310
+		color 255,255,255
+		mes "通信士\n\nでもアレはまだ十分なテストも\nとれてませんが・・"
+		
+		
+	}
+		if kaiwaf=3{
+		gmode 4,,,200
+		pos 0,300
+		gcopy 8,0,0,369,121
+		
+		gmode 1,,,
+		pos 10,310
+		gcopy 8,82,123,80,99
+				
+		pos 100,310
+		color 255,255,255
+		mes "隊長\n\nいっけええええええええええ\nおらああああああ"
+		
+		
+		
+	}
+		
+	if kaiwaf=4{
+		kaiwaf=0
+		turn+=1
+		kaiwakaunter=0
+		dmstop:mmstop
+		dmplay 0,10
+		kyokumei="Done_Gone"
+	}
+	return
+*k14
+	if kaiwaf=0:kaiwaf=1
+
+	if kaiwaf=1{
+		
+		pos 0,440-kaiwakaunter:gmode 4,,,200
+		if kaiwakaunter>=140:pos 0,300
+		gcopy 8,0,0,369,121
+		
+		pos 10,450-kaiwakaunter:gmode 1,,,
+		if kaiwakaunter>=140:pos 10,310
+		gcopy 8,0,123,80,99
+		
+		if kaiwakaunter>=140{
+			pos 100,310
+			color 255,255,255
+			mes "通信士\n\nあーあやっちゃった・・。"
+		}
+		kaiwakaunter+=10
+	}
+	
+	if kaiwaf=2{
+		gmode 4,,,200
+		pos 0,300
+		gcopy 8,0,0,369,121
+		
+		gmode 1,,,
+		pos 10,310
+		gcopy 8,82,123,80,99
+				
+		pos 100,310
+		color 255,255,255
+		mes "隊長\n\nいやほら・・耐久テストしてないなんて・・\nおもわなかったんだ。。"
+		
+		
+	}
+		if kaiwaf=3{
+		gmode 4,,,200
+		pos 0,300
+		gcopy 8,0,0,369,121
+		
+		gmode 1,,,
+		pos 10,310
+		gcopy 8,82,123,80,99
+				
+		pos 100,310
+		color 255,255,255
+		mes "隊長\n\nこうなったらやけだ！！！\nチェインガード全機\n投入！！！！"
+		
+		
+		
+	}
+	if kaiwaf=4{
+		kaiwaf=0
+		turn+=1
+		kaiwakaunter=0
+	}
+	return
+*k15
+	if kaiwaf=0:kaiwaf=1
+
+	if kaiwaf=1{
+		
+		pos 0,440-kaiwakaunter:gmode 4,,,200
+		if kaiwakaunter>=140:pos 0,300
+		gcopy 8,0,0,369,121
+		
+		pos 10,450-kaiwakaunter:gmode 1,,,
+		if kaiwakaunter>=140:pos 10,310
+		gcopy 8,0,123,80,99
+		
+		if kaiwakaunter>=140{
+			pos 100,310
+			color 255,255,255
+			mes "通信士\n\n開発費の１８億ホンコンドルが\n全部パーか・・。"
+		}
+		kaiwakaunter+=10
+		
+	}
+	if kaiwaf=2{
+		kaiwaf=0
+		turn+=1
+		kaiwakaunter=0
+		dmstop
+		ds_play 9
+		stage=3
+		utyusz2=0
+		utyusz=0
+		kyokumei="Orange Blossom Special Arrange"
+	}
+	return
+*k16
+	if kaiwaf=0:kaiwaf=1
+
+	if kaiwaf=1{
+		
+		pos 0,440-kaiwakaunter:gmode 4,,,200
+		if kaiwakaunter>=140:pos 0,300
+		gcopy 8,0,0,369,121
+		
+		pos 10,450-kaiwakaunter:gmode 1,,,
+		if kaiwakaunter>=140:pos 10,310
+		gcopy 8,0,123,80,99
+		
+		if kaiwakaunter>=140{
+			pos 100,310
+			color 255,255,255
+			mes "通信士\n\nこのままだと内部コアの\n脆弱性を突かれて基地ごと\nドカンといきます！"
+		}
+		kaiwakaunter+=10
+		
+	}
+	
+	if kaiwaf=2{
+		gmode 4,,,200
+		pos 0,300
+		gcopy 8,0,0,369,121
+		
+		gmode 1,,,
+		pos 10,310
+		gcopy 8,82,123,80,99
+				
+		pos 100,310
+		color 255,255,255
+		mes "隊長\n\n最終手段だ。\n某国から仕入れた最強のロボット・・\n出動させるぞ。"
+		
+		
+	}
+	if kaiwaf=3{
+		gmode 4,,,200
+		pos 0,300
+		gcopy 8,0,0,369,121
+		
+		gmode 1,,,
+		pos 10,310
+		gcopy 8,0,123,80,99
+				
+		pos 100,310
+		color 255,255,255
+		mes "通信士\n\nいまどきアレかよ・・・"
+		
+		
+	}
+	if kaiwaf=4{
+		gmode 4,,,200
+		pos 0,300
+		gcopy 8,0,0,369,121
+		
+		gmode 1,,,
+		pos 10,310
+		gcopy 8,82,123,80,99
+				
+		pos 100,310
+		color 255,255,255
+		mes "隊長\n\nそういうな、まだコアなファンはいる。"
+		
+		
+	}
+	
+	if kaiwaf=5{
+		kaiwaf=0
+		turn+=1
+		kaiwakaunter=0
+		dmstop
+		mmstop:dmplay 100,11
+		stage=3:shotdasuna=1
+		
+		kyokumei="Black Berry Blossom AzmaSpecial"
+	}
+	return
+*k17
+	if kaiwaf=0:kaiwaf=1
+
+	if kaiwaf=1{
+		
+		pos 0,440-kaiwakaunter:gmode 4,,,200
+		if kaiwakaunter>=140:pos 0,300
+		gcopy 8,0,0,369,121
+		
+		pos 10,450-kaiwakaunter:gmode 1,,,
+		if kaiwakaunter>=140:pos 10,310
+		gcopy 5,37,29,26,33
+
+		
+		if kaiwakaunter>=140{
+			pos 100,310
+			color 255,255,255
+			mes "Ｖマン\n\nちょっと待った！！"
+		}
+		kaiwakaunter+=10
+		
+	}
+
+	
+	
+	if kaiwaf=2{
+		kaiwaf=0
+		turn+=1
+		kaiwakaunter=0
+		dmstop
+		mmstop:mmplay 2
+		
+	
+		kyokumei="A-10"
+	}
+	return
+*k18
+	if kaiwaf=0:kaiwaf=1
+
+	if kaiwaf=1{
+		
+		pos 0,440-kaiwakaunter:gmode 4,,,200
+		if kaiwakaunter>=140:pos 0,300
+		gcopy 8,0,0,369,121
+		
+		pos 10,450-kaiwakaunter:gmode 1,,,
+		if kaiwakaunter>=140:pos 10,310
+		gcopy 5,37,29,26,33
+
+		
+		if kaiwakaunter>=140{
+			pos 100,310
+			color 255,255,255
+			mes "Ｖマン\n\nもれ太！こいつは強いぞ！\nここは俺に任せて\nトイレに行くんだ！"
+		}
+		kaiwakaunter+=10
+		
+	}
+	if kaiwaf=2{
+		gmode 4,,,200
+		pos 0,300
+		gcopy 8,0,0,369,121
+		
+		gmode 2,,,
+		pos 10,310
+		gcopy 3,90,48,51,44
+		
+		
+		pos 100,310
+		color 255,255,255
+		mes "もれ太\n\nＶマン！？"
+		
+		
+	}
+	if kaiwaf=3{
+		gmode 4,,,200
+		pos 0,300
+		gcopy 8,0,0,369,121
+		
+		
+		gmode 1,,,
+		pos 10,310
+		gcopy 5,37,29,26,33
+				
+		pos 100,310
+		color 255,255,255
+		mes "Vマン\n\nトイレへ案内すると・・\n約束したからな・・"
+		
+		
+	}
+	if kaiwaf=4{
+		gmode 4,,,200
+		pos 0,300
+		gcopy 8,0,0,369,121
+		
+		gmode 2,,,
+		pos 10,310
+		gcopy 3,90,48,51,44
+		
+		
+		pos 100,310:color 255,255,255
+		mes "もれ太\n\nＶマン・・・・\nおまえってやつは・・・!"
+		
+		
+	}
+	
+	if kaiwaf=5{
+		kaiwaf=0
+		turn+=1
+		kaiwakaunter=0
+		mutekif=0
+	
+		kyokumei="A-10"
+	}
+	return
+*k19
+	if kaiwaf=0:kaiwaf=1
+
+	if kaiwaf=1{
+		
+		pos 0,440-kaiwakaunter:gmode 4,,,200
+		if kaiwakaunter>=140:pos 0,300
+		gcopy 8,0,0,369,121
+		
+		pos 10,450-kaiwakaunter:gmode 1,,,
+		if kaiwakaunter>=140:pos 10,310
+		gcopy 5,37,29,26,33
+
+		
+		if kaiwakaunter>=140{
+			pos 100,310
+			color 255,255,255
+			mes "Ｖマン\n\nウッ"
+		}
+		kaiwakaunter+=10
+		
+	}
+
+	if kaiwaf=2{
+		gmode 4,,,200
+		pos 0,300
+		gcopy 8,0,0,369,121
+		
+		gmode 2,,,
+		pos 10,310
+		gcopy 3,90,48,51,44
+		
+		
+		pos 100,310:color 255,255,255
+		font "MS ゴシック",24
+		mes "もれ太\n\n期待した俺が\nバカだった"
+		
+		
+	}
+	
+	if kaiwaf=3{
+		kaiwaf=0
+		turn+=1
+		kaiwakaunter=0
+		dmstop
+		mmstop
+		shotdasuna=0
+		cannon = 5
+		
+	
+		kyokumei="Black Berry Blossom AzmaSpecial"
+	}
+	return
+*k20
+	if kaiwaf=0:kaiwaf=1
+
+	if kaiwaf=1{
+		
+		pos 0,440-kaiwakaunter:gmode 4,,,200
+		if kaiwakaunter>=140:pos 0,300
+		gcopy 8,0,0,369,121
+		
+		pos 10,450-kaiwakaunter:gmode 1,,,
+		if kaiwakaunter>=140:pos 10,310
+		gcopy 8,0,123,80,99
+		
+		if kaiwakaunter>=140{
+			pos 100,310
+			color 255,255,255
+			mes "通信士\n\n内燃機関がメルトダウンしています！\n暴走しますよ！"
+		}
+		kaiwakaunter+=10
+	}
+	
+	if kaiwaf=2{
+		gmode 4,,,200
+		pos 0,300
+		gcopy 8,0,0,369,121
+		
+		gmode 1,,,
+		pos 10,310
+		gcopy 8,82,123,80,99
+				
+		pos 100,310
+		color 255,255,255
+		mes "隊長\n\nこのままでは宇宙ステーションもろとも\n吹き飛んでしまう・・"
+		
+		
+	}
+	if kaiwaf=3{
+		gmode 4,,,200
+		pos 0,300
+		gcopy 8,0,0,369,121
+		
+		gmode 1,,,
+		pos 10,310
+		gcopy 8,0,123,80,99
+				
+		pos 100,310
+		color 255,255,255
+		mes "通信士\n\n隊長！どうするんですか！"
+		
+		
+	}
+	if kaiwaf=4{
+		gmode 4,,,200
+		pos 0,300
+		gcopy 8,0,0,369,121
+		
+		gmode 1,,,
+		pos 10,310
+		gcopy 8,82,123,80,99
+				
+		pos 100,310
+		color 255,255,255
+		mes "隊長\n\n・・・・・"
+		
+		
+		
+	}
+	if kaiwaf=5{
+		gmode 4,,,200
+		pos 0,300
+		gcopy 8,0,0,369,121
+		
+		gmode 1,,,
+		pos 10,310
+		gcopy 8,0,123,80,99
+				
+		pos 100,310
+		color 255,255,255
+		mes "通信士\n\n隊長！"
+		
+	}
+	if kaiwaf=6{
+		gmode 4,,,200
+		pos 0,300
+		gcopy 8,0,0,369,121
+		
+		gmode 1,,,
+		pos 10,310
+		gcopy 8,82,123,80,99
+				
+		pos 100,310
+		color 255,255,255
+		mes "隊長\n\n俺にだって・・・"
+		
+		
+		
+	}
+	if kaiwaf=7{
+		gmode 4,,,200
+		pos 0,300
+		gcopy 8,0,0,369,121
+		
+		gmode 1,,,
+		pos 10,310
+		gcopy 8,82,123,80,99
+				
+		pos 100,310
+		color 255,255,255
+		mes "隊長\n\nわからないことぐらい・・・\nある・・"
+		
+		
+		
+	}
+	if kaiwaf=8{
+		kaiwaf=0
+		turn+=1
+		kaiwakaunter=0
+		dmstop:mmstop
+		dmplay 100,15
+	}
+	return
+*k21
+	if kaiwaf=0:kaiwaf=1
+
+	if kaiwaf=1{
+		
+		pos 0,440-kaiwakaunter:gmode 4,,,200
+		if kaiwakaunter>=140:pos 0,300
+		gcopy 8,0,0,369,121
+		
+		pos 10,450-kaiwakaunter:gmode 1,,,
+		if kaiwakaunter>=140:pos 10,310
+		gcopy 8,0,123,80,99
+		
+		if kaiwakaunter>=140{
+			pos 100,310
+			color 255,255,255
+			font "MS ゴシック",20
+			mes "通信士\n\nうわあああ！！こっち来ます！！"
+		}
+		kaiwakaunter+=10
+	}
+	
+	if kaiwaf=2{
+		gmode 4,,,200
+		pos 0,300
+		gcopy 8,0,0,369,121
+		
+		gmode 1,,,
+		pos 10,310
+		gcopy 8,82,123,80,99
+				
+		pos 100,310
+		color 255,255,255
+		font "MS ゴシック",20
+		mes "隊長\n\nく・・くるなああああ！"
+		font "MS ゴシック",30
+		mes "きちゃだめえええええ！"
+		
+		
+	}
+	
+	if kaiwaf=3{
+		kaiwaf=0
+		turn+=1
+		kaiwaend=1
+	}
+	return
+*utyusenhail
+	utyusenf=1:utyusy=-440:utyusy2=-440:tiky=0
+	turn+=1
+	return
+*put_enemy1
+
+	noteget exa,1
+	noteget eya,2
+	
+	//敵発生
+
+	repeat tmax
+		if tf.cnt>0 {continue} if dis.cnt>0 {continue}							;空きフラグを探す
+		eh+
+		eh2.cnt=90										;向かう角度を求める
+		tf.cnt=1										;フラグオン
+		tc.cnt=255										;色
+		
+		ts.cnt=1										;敵フラグをオン
+		
+		tx.cnt=int(exa)*1000 :ty.cnt=int(eya)*1000			;位置に弾発生(1000倍）
+		txv.cnt=cosa(eh2.cnt)/5 : tyv.cnt=sina(eh2.cnt)/5	;移動方向
+
+		//当たり判定の範囲
+		hitchklenghx.cnt=13
+		hitchklenghy.cnt=13
+
+		//中心座標用加算変数
+		tcplusx.cnt=12
+		tcplusy.cnt=12
+		
+		if eh=1 : eh=0 : break							;1つ出現さしてループを抜ける
+	loop
+
+	turn+=1
+	
+	return
+*sight
+
+	getsankaktcy target
+	repeat tmax
+		if tf.cnt>0 {continue} if dis.cnt>0 {continue}							;空きフラグを探す
+		eh+
+		eh2.cnt=b										;向かう角度を求める
+		tf.cnt=1										;フラグオン
+		modc=double((eh2.cnt+290)*3.1415926535897932384626433832795)/180
+		tk.cnt=modc
+		
+		ts.cnt=41										;敵フラグをオン
+		
+		tx.cnt=(tcx.target+3)*1000 :ty.cnt=(tcy.target+30)*1000			;位置に弾発生(1000倍）
+		txv.cnt=cosa(eh2.cnt)/2 : tyv.cnt=sina(eh2.cnt)/2	;移動方向
+
+		//当たり判定の範囲
+		hitchklenghx.cnt=0
+		hitchklenghy.cnt=0
+
+		//中心座標用加算変数
+		tcplusx.cnt=0
+		tcplusy.cnt=0
+		
+		if eh=1 : eh=0 : break							;1つ出現さしてループを抜ける
+	loop
+
+	turn+=1
+	
+	return
+*fanel
+
+	noteget exa,1
+	noteget eya,2
+	noteget fahp,3
+	fhp=int(fahp)
+	//敵発生
+
+	repeat tmax
+		if tf.cnt>0 {continue} if dis.cnt>0 {continue}							;空きフラグを探す
+		fhp.cnt=fhp
+		eh+
+		eh2.cnt=0										;向かう角度を求める
+		tf.cnt=1										;フラグオン
+		tc.cnt=255										;色
+		
+		ts.cnt=14										;敵フラグをオン
+		
+		tx.cnt=int(exa)*1000 :ty.cnt=int(eya)*1000			;位置に弾発生(1000倍）
+		txv.cnt=cosa(eh2.cnt)/10 : tyv.cnt=sina(eh2.cnt)/10	;移動方向
+
+		//当たり判定の範囲
+		hitchklenghx.cnt=3
+		hitchklenghy.cnt=2
+
+		//中心座標用加算変数
+		tcplusx.cnt=2
+		tcplusy.cnt=2
+		
+		if eh=1 : eh=0 : break							;1つ出現さしてループを抜ける
+	loop
+
+	turn+=1
+	
+	return
+*put_enemy2
+	noteget exa,1
+	noteget eya,2
+	
+	//敵発生
+
+	repeat tmax
+		if tf.cnt>0 {continue} if dis.cnt>0 {continue}							;空きフラグを探す
+		eh+
+		eh2.cnt=89										;向かう角度を求める
+		tf.cnt=1										;フラグオン
+		tc.cnt=255										;色
+		ts.cnt=5
+		
+		tx.cnt=int(exa)*1000 :ty.cnt=int(eya)*1000			;位置に弾発生(1000倍）
+		txv.cnt=cosa(eh2.cnt)/5 : tyv.cnt=sina(eh2.cnt)/5	;移動方向
+
+		//当たり判定の範囲
+		hitchklenghx.cnt=13
+		hitchklenghy.cnt=13
+
+		//中心座標用加算変数
+		tcplusx.cnt=12
+		tcplusy.cnt=12
+		
+		if eh=1 : eh=0 : break							;1つだしてループを抜ける
+	loop
+
+	turn+=1	
+	return
+*put_enemy3
+	noteget exa,1
+	noteget eya,2
+	
+	//敵発生
+
+	repeat tmax
+		if tf.cnt>0 {continue} if dis.cnt>0 {continue}							;空きフラグを探す
+		eh+
+		eh2.cnt=180										;向かう角度を求める
+		
+		tf.cnt=1										;フラグオン
+		tc.cnt=255										;色
+		ts.cnt=9
+		
+		tx.cnt=int(exa)*1000 :ty.cnt=int(eya)*1000			;位置に弾発生(1000倍）
+		txv.cnt=cosa(eh2.cnt)/3 : tyv.cnt=sina(eh2.cnt)/3	;移動方向
+
+		//当たり判定の範囲
+		hitchklenghx.cnt=13
+		hitchklenghy.cnt=13
+
+		//中心座標用加算変数
+		tcplusx.cnt=12
+		tcplusy.cnt=12
+		
+		if eh=1 : eh=0 : break							;1つだしてループを抜ける
+	loop
+
+	turn+=1	
+	return
+*put_enemy5
+	noteget exa,1
+	noteget eya,2
+	
+	//敵発生
+	
+
+	repeat tmax
+		if tf.cnt>0 {continue} if dis.cnt>0 {continue}							;空きフラグを探す
+		eh+
+		
+		tf.cnt=1										;フラグオン
+		tc.cnt=255										;色
+		ts.cnt=17
+		
+		tx.cnt=int(exa)*1000 :ty.cnt=int(eya)*1000			;位置に弾発生(1000倍）
+		eh2.cnt=180
+		txv.cnt=cosa(eh2.cnt)/1 : tyv.cnt=sina(eh2.cnt)/1	;移動方向
+
+		//当たり判定の範囲
+		hitchklenghx.cnt=13
+		hitchklenghy.cnt=13
+
+		//中心座標用加算変数
+		tcplusx.cnt=12
+		tcplusy.cnt=12
+		
+		if eh=1 : eh=0 : break							;1つだしてループを抜ける
+	loop
+
+	turn+=1	
+	return
+*put_enemy4
+	noteget exa,1
+	noteget eya,2
+	
+	//敵発生
+	
+	if deta=0:mmplay 11:deta=1
+	repeat tmax
+		if tf.cnt>0 {continue} if dis.cnt>0 {continue}							;空きフラグを探す
+		eh+
+		
+		tf.cnt=1										;フラグオン
+		tc.cnt=255										;色
+		ts.cnt=16
+		
+		tx.cnt=int(exa)*1000 :ty.cnt=int(eya)*1000			;位置に弾発生(1000倍）
+		getsankak3 cnt : eh2.cnt=b							;自機の角度をしらべっる
+		txv.cnt=cosa(eh2.cnt)/1 : tyv.cnt=sina(eh2.cnt)/1	;移動方向
+
+		//当たり判定の範囲
+		hitchklenghx.cnt=13
+		hitchklenghy.cnt=13
+
+		//中心座標用加算変数
+		tcplusx.cnt=12
+		tcplusy.cnt=12
+		
+		if eh=1 : eh=0 : break							;1つだしてループを抜ける
+	loop
+
+	turn+=1	
+	return
+*put_enemy6
+	noteget exa,1
+	noteget eya,2
+	
+	//敵発生
+
+	repeat tmax
+		if tf.cnt>0 {continue} if dis.cnt>0 {continue}							;空きフラグを探す
+		eh+
+		eh2.cnt=0										;向かう角度を求める
+		
+		tf.cnt=1										;フラグオン
+		tc.cnt=255										;色
+		ts.cnt=22
+		
+		tx.cnt=int(exa)*1000 :ty.cnt=int(eya)*1000			;位置に弾発生(1000倍）
+		txv.cnt=cosa(eh2.cnt)/3 : tyv.cnt=sina(eh2.cnt)/3	;移動方向
+
+		//当たり判定の範囲
+		hitchklenghx.cnt=13
+		hitchklenghy.cnt=13
+
+		//中心座標用加算変数
+		tcplusx.cnt=12
+		tcplusy.cnt=12
+		
+		if eh=1 : eh=0 : break							;1つだしてループを抜ける
+	loop
+
+	turn+=1	
+	return
+*put_enemy7
+	noteget exa,1
+	noteget eya,2
+	noteget zhptmp,3
+	zhptmp=int(zhptmp)
+	
+	//敵発生
+
+	repeat tmax
+		if tf.cnt>0 {continue} if dis.cnt>0 {continue}							;空きフラグを探す
+		eh+
+		eh2.cnt=89										;向かう角度を求める
+		tf.cnt=1										;フラグオン
+		tc.cnt=255										;色
+		
+		zhp.cnt=zhptmp
+		ts.cnt=23
+		
+		tx.cnt=int(exa)*1000 :ty.cnt=int(eya)*1000			;位置に弾発生(1000倍）
+		txv.cnt=cosa(eh2.cnt)/5 : tyv.cnt=sina(eh2.cnt)/5	;移動方向
+
+		//当たり判定の範囲
+		hitchklenghx.cnt=13
+		hitchklenghy.cnt=13
+
+		//中心座標用加算変数
+		tcplusx.cnt=12
+		tcplusy.cnt=12
+		
+		if eh=1 : eh=0 : break							;1つだしてループを抜ける
+	loop
+
+	turn+=1	
+	return
+*put_enemy8
+
+	noteget exa,1
+	noteget eya,2
+	
+	//敵発生
+
+	repeat tmax
+		if tf.cnt>0 {continue} if dis.cnt>0 {continue}							;空きフラグを探す
+		eh+
+		eh2.cnt=90										;向かう角度を求める
+		tf.cnt=1										;フラグオン
+		tc.cnt=255										;色
+		
+		ts.cnt=1										;敵フラグをオン
+		
+		tx.cnt=int(exa)*1000 :ty.cnt=int(eya)*1000			;位置に弾発生(1000倍）
+		txv.cnt=cosa(eh2.cnt)/2 : tyv.cnt=sina(eh2.cnt)/2	;移動方向
+
+		//当たり判定の範囲
+		hitchklenghx.cnt=13
+		hitchklenghy.cnt=13
+
+		//中心座標用加算変数
+		tcplusx.cnt=12
+		tcplusy.cnt=12
+		
+		if eh=1 : eh=0 : break							;1つ出現さしてループを抜ける
+	loop
+
+	turn+=1
+	
+	return
+*put_enemy9
+
+	noteget exa,1
+	noteget eya,2
+	noteget zhptmp,3
+	zhptmp=int(zhptmp)
+	
+	//敵発生
+
+	repeat tmax
+		if tf.cnt>0 {continue} if dis.cnt>0 {continue}							;空きフラグを探す
+		eh+
+		eh2.cnt=90										;向かう角度を求める
+		tf.cnt=1										;フラグオン
+		tc.cnt=255										;色
+		
+		ts.cnt=31										;敵フラグをオン
+		zhp.cnt=zhptmp
+		
+		tx.cnt=int(exa)*1000 :ty.cnt=int(eya)*1000			;位置に弾発生(1000倍）
+		txv.cnt=cosa(eh2.cnt)/5 : tyv.cnt=sina(eh2.cnt)/5	;移動方向
+
+		//当たり判定の範囲
+		hitchklenghx.cnt=13
+		hitchklenghy.cnt=13
+
+		//中心座標用加算変数
+		tcplusx.cnt=12
+		tcplusy.cnt=12
+		
+		if eh=1 : eh=0 : break							;1つ出現さしてループを抜ける
+	loop
+
+	turn+=1
+	
+	return
+*put_enemy10
+
+	noteget exa,1
+	noteget eya,2
+	noteget zhptmp,3
+	zhptmp=int(zhptmp)
+	
+	//敵発生
+
+	repeat tmax
+		if tf.cnt>0 {continue} if dis.cnt>0 {continue}							;空きフラグを探す
+		eh+
+		eh2.cnt=90										;向かう角度を求める
+		tf.cnt=1										;フラグオン
+		tc.cnt=255										;色
+		
+		ts.cnt=32										;敵フラグをオン
+		zhp.cnt=zhptmp
+		
+		tx.cnt=int(exa)*1000 :ty.cnt=int(eya)*1000			;位置に弾発生(1000倍）
+		txv.cnt=cosa(eh2.cnt)/5 : tyv.cnt=sina(eh2.cnt)/5	;移動方向
+
+		//当たり判定の範囲
+		hitchklenghx.cnt=13
+		hitchklenghy.cnt=13
+
+		//中心座標用加算変数
+		tcplusx.cnt=12
+		tcplusy.cnt=12
+		
+		if eh=1 : eh=0 : break							;1つ出現さしてループを抜ける
+	loop
+
+	turn+=1
+	
+	return
+*put_enemy12
+
+	noteget exa,1
+	noteget eya,2
+	noteget zhptmp,3
+	zhptmp=int(zhptmp)
+	
+	//敵発生
+
+	repeat tmax
+		if tf.cnt>0 {continue} if dis.cnt>0 {continue}							;空きフラグを探す
+		eh+
+		eh2.cnt=90										;向かう角度を求める
+		tf.cnt=1										;フラグオン
+		tc.cnt=255										;色
+		
+		ts.cnt=34										;敵フラグをオン
+		zhp.cnt=zhptmp
+		
+		tx.cnt=int(exa)*1000 :ty.cnt=int(eya)*1000			;位置に弾発生(1000倍）
+		txv.cnt=cosa(eh2.cnt)/5 : tyv.cnt=sina(eh2.cnt)/5	;移動方向
+
+		//当たり判定の範囲
+		hitchklenghx.cnt=13
+		hitchklenghy.cnt=13
+
+		//中心座標用加算変数
+		tcplusx.cnt=12
+		tcplusy.cnt=12
+		
+		if eh=1 : eh=0 : break							;1つ出現さしてループを抜ける
+	loop
+
+	turn+=1
+	
+	return
+*put_enemy11
+
+	noteget exa,1
+	noteget eya,2
+	noteget zhptmp,3
+	zhptmp=int(zhptmp)
+	
+	//敵発生
+
+	repeat tmax
+		if tf.cnt>0 {continue} if dis.cnt>0 {continue}							;空きフラグを探す
+		eh+
+		eh2.cnt=90										;向かう角度を求める
+		tf.cnt=1										;フラグオン
+		tc.cnt=255										;色
+		
+		ts.cnt=33										;敵フラグをオン
+		zhp.cnt=zhptmp
+		
+		tx.cnt=int(exa)*1000 :ty.cnt=int(eya)*1000			;位置に弾発生(1000倍）
+		txv.cnt=cosa(eh2.cnt)/5 : tyv.cnt=sina(eh2.cnt)/5	;移動方向
+
+		//当たり判定の範囲
+		hitchklenghx.cnt=13
+		hitchklenghy.cnt=13
+
+		//中心座標用加算変数
+		tcplusx.cnt=12
+		tcplusy.cnt=12
+		
+		if eh=1 : eh=0 : break							;1つ出現さしてループを抜ける
+	loop
+
+	turn+=1
+	
+	return
+*put_enemy13
+
+	noteget exa,1
+	noteget eya,2
+	noteget zhptmp,3
+	zhptmp=int(zhptmp)
+	
+	//敵発生
+
+	repeat tmax
+		if tf.cnt>0 {continue} if dis.cnt>0 {continue}							;空きフラグを探す
+		eh+
+		eh2.cnt=90										;向かう角度を求める
+		tf.cnt=1										;フラグオン
+		tc.cnt=255										;色
+		
+		ts.cnt=36										;敵フラグをオン
+		zhp.cnt=zhptmp
+		
+		tx.cnt=int(exa)*1000 :ty.cnt=int(eya)*1000			;位置に弾発生(1000倍）
+		txv.cnt=cosa(eh2.cnt)/5 : tyv.cnt=sina(eh2.cnt)/5	;移動方向
+
+		//当たり判定の範囲
+		hitchklenghx.cnt=13
+		hitchklenghy.cnt=13
+
+		//中心座標用加算変数
+		tcplusx.cnt=12
+		tcplusy.cnt=12
+		
+		if eh=1 : eh=0 : break							;1つ出現さしてループを抜ける
+	loop
+
+	turn+=1
+	
+	return
+
+*put_enemy14
+
+	noteget exa,1
+	noteget eya,2
+	noteget zhptmp,3
+	zhptmp=int(zhptmp)
+	
+	//敵発生
+
+	repeat tmax
+		if tf.cnt>0 {continue} if dis.cnt>0 {continue}							;空きフラグを探す
+		eh+
+		eh2.cnt=90										;向かう角度を求める
+		tf.cnt=1										;フラグオン
+		tc.cnt=255										;色
+		
+		ts.cnt=38										;敵フラグをオン
+		zhp.cnt=zhptmp
+		
+		tx.cnt=int(exa)*1000 :ty.cnt=int(eya)*1000			;位置に弾発生(1000倍）
+		txv.cnt=cosa(eh2.cnt)/5 : tyv.cnt=sina(eh2.cnt)/5	;移動方向
+
+		//当たり判定の範囲
+		hitchklenghx.cnt=13
+		hitchklenghy.cnt=13
+
+		//中心座標用加算変数
+		tcplusx.cnt=12
+		tcplusy.cnt=12
+		
+		if eh=1 : eh=0 : break							;1つ出現さしてループを抜ける
+	loop
+
+	turn+=1
+	
+	return
+*put_enemy15
+
+	noteget exa,1
+	noteget eya,2
+	noteget zhptmp,3
+	zhptmp=int(zhptmp)
+	
+	//敵発生
+
+	repeat tmax
+		if tf.cnt>0 {continue} if dis.cnt>0 {continue}							;空きフラグを探す
+		eh+
+		eh2.cnt=90										;向かう角度を求める
+		tf.cnt=1										;フラグオン
+		tc.cnt=255										;色
+		
+		ts.cnt=40										;敵フラグをオン
+		zhp.cnt=zhptmp
+		
+		tx.cnt=int(exa)*1000 :ty.cnt=int(eya)*1000			;位置に弾発生(1000倍）
+		txv.cnt=cosa(eh2.cnt)/5 : tyv.cnt=sina(eh2.cnt)/5	;移動方向
+
+		//当たり判定の範囲
+		hitchklenghx.cnt=32
+		hitchklenghy.cnt=32
+
+		//中心座標用加算変数
+		tcplusx.cnt=32
+		tcplusy.cnt=32
+		
+		if eh=1 : eh=0 : break							;1つ出現さしてループを抜ける
+	loop
+
+	turn+=1
+	
+	return
+*midle1
+
+	noteget exa,1
+	noteget eya,2
+	noteget chp,3
+	chp=int(chp)
+	//中ボス発生！
+	
+	repeat tmax
+		if tf.cnt>0 {continue} if dis.cnt>0 {continue}							;空きフラグを探す
+		eh+
+		eh2.cnt=125											;向かう角度を求める
+		tf.cnt=1										;フラグオン
+		tc.cnt=255										;色
+		ts.cnt=6
+		
+		tx.cnt=int(exa)*1000 :ty.cnt=int(eya)*1000		;位置に弾発生(1000倍）
+		txv.cnt=cosa(eh2.cnt)/10 : tyv.cnt=sina(eh2.cnt)/10			;移動方向
+
+		//当たり判定の範囲
+		hitchklenghx.cnt=32
+		hitchklenghy.cnt=32
+
+		//中心座標用加算変数
+		tcplusx.cnt=32
+		tcplusy.cnt=32
+		
+		if eh=1 : eh=0 : break							;1発発射してループを抜ける
+	loop
+
+	turn+=1
+	
+	return
+*midle2
+
+	noteget exa,1
+	noteget eya,2
+	noteget chp,3
+	chp=int(chp)
+	//中ボス発生！
+	
+	repeat tmax
+		if tf.cnt>0 {continue} if dis.cnt>0 {continue}							;空きフラグを探す
+		eh+
+		eh2.cnt=125											;向かう角度を求める
+		tf.cnt=1										;フラグオン
+		tc.cnt=255										;色
+		ts.cnt=18
+		
+		tx.cnt=int(exa)*1000 :ty.cnt=int(eya)*1000		;位置に弾発生(1000倍）
+		txv.cnt=cosa(eh2.cnt)/3 : tyv.cnt=sina(eh2.cnt)/3			;移動方向
+
+		//当たり判定の範囲
+		hitchklenghx.cnt=12
+		hitchklenghy.cnt=12
+		
+
+		//中心座標用加算変数
+		tcplusx.cnt=12
+		tcplusy.cnt=12
+		
+		if eh=1 : eh=0 : break							;1発発射してループを抜ける
+	loop
+
+	turn+=1
+	
+	return
+*midle3
+
+	noteget exa,1
+	noteget eya,2
+	noteget chp,3
+	chp=int(chp)
+	//中ボス発生！
+	
+	repeat tmax
+		if tf.cnt>0 {continue} if dis.cnt>0 {continue}							;空きフラグを探す
+		eh+
+		eh2.cnt=89											;向かう角度を求める
+		tf.cnt=1										;フラグオン
+		tc.cnt=255										;色
+		ts.cnt=39
+		
+		tx.cnt=int(exa)*1000 :ty.cnt=int(eya)*1000		;位置に弾発生(1000倍）
+		txv.cnt=cosa(eh2.cnt)/3 : tyv.cnt=sina(eh2.cnt)/3			;移動方向
+
+		//当たり判定の範囲
+		hitchklenghx.cnt=12
+		hitchklenghy.cnt=12
+		
+
+		//中心座標用加算変数
+		tcplusx.cnt=12
+		tcplusy.cnt=12
+		
+		if eh=1 : eh=0 : break							;1発発射してループを抜ける
+	loop
+
+	turn+=1
+	
+	return
+*chainput
+
+	noteget exa,1
+	noteget eya,2
+	noteget dhp,3
+	bhp=int(dhp)
+	//大ボス発生
+	
+	repeat tmax
+		if tf.cnt>0 {continue} 		if dis.cnt>0 {continue}					;空きフラグを探す
+		eh+
+		eh2.cnt=90											;向かう角度を求める
+		tf.cnt=1										;フラグオン
+		tc.cnt=255										;色
+		ts.cnt=44
+		zhp.cnt=bhp
+		
+		tx.cnt=int(exa)*1000 :ty.cnt=int(eya)*1000		;位置に弾発生(1000倍）
+		txv.cnt=0 : tyv.cnt=0			;移動方向
+
+		//当たり判定の範囲
+		hitchklenghx.cnt=100
+		hitchklenghy.cnt=60
+
+		//中心座標用加算変数
+		tcplusx.cnt=100
+		tcplusy.cnt=60
+
+		hontai=cnt
+		
+		if eh=1 : eh=0 : break							;1発発射してループを抜ける
+	loop
+	repeat tmax
+		if tf.cnt>0 {continue} 	if dis.cnt>0 {continue}						;空きフラグを探す
+		eh+
+		eh2.cnt=300											;向かう角度を求める
+		tf.cnt=1										;フラグオン
+		tc.cnt=hontai										;色
+		ts.cnt=45
+		zhp.cnt=bhp
+		
+		tx.cnt=(int(exa)+145)*1000 :ty.cnt=(int(eya)-8)*1000		;位置に弾発生(1000倍）
+		txv.cnt=0 : tyv.cnt=0			;移動方向
+
+		//当たり判定の範囲
+		hitchklenghx.cnt=40
+		hitchklenghy.cnt=5
+
+		//中心座標用加算変数
+		tcplusx.cnt=80
+		tcplusy.cnt=0
+		
+		if eh=1 : eh=0 : break							;1発発射してループを抜ける
+	loop
+	repeat tmax
+		if tf.cnt>0 {continue} 		if dis.cnt>0 {continue}					;空きフラグを探す
+		eh+
+		eh2.cnt=200											;向かう角度を求める
+		tf.cnt=1										;フラグオン
+		tc.cnt=hontai										;色
+		ts.cnt=46
+		zhp.cnt=bhp
+		
+		tx.cnt=(int(exa)-20)*1000 :ty.cnt=int(eya+10)*1000		;位置に弾発生(1000倍）
+		txv.cnt=0 : tyv.cnt=0			;移動方向
+//当たり判定の範囲
+		hitchklenghx.cnt=50
+		hitchklenghy.cnt=5
+
+		//中心座標用加算変数
+		tcplusx.cnt=0
+		tcplusy.cnt=0
+		
+		if eh=1 : eh=0 : break							;1発発射してループを抜ける
+	loop
+	repeat tmax
+		if tf.cnt>0 {continue} 	if dis.cnt>0 {continue}					;空きフラグを探す
+		eh+
+		eh2.cnt=125											;向かう角度を求める
+		tf.cnt=1										;フラグオン
+		tc.cnt=hontai										;色
+		ts.cnt=47
+		zhp.cnt=bhp
+		
+		tx.cnt=(int(exa)+145)*1000 :ty.cnt=int(eya+100)*1000		;位置に弾発生(1000倍）
+		txv.cnt=0 : tyv.cnt=0			;移動方向
+
+		//当たり判定の範囲
+		hitchklenghx.cnt=40
+		hitchklenghy.cnt=5
+
+		//中心座標用加算変数
+		tcplusx.cnt=80
+		tcplusy.cnt=0
+		
+		if eh=1 : eh=0 : break							;1発発射してループを抜ける
+	loop
+repeat tmax
+		if tf.cnt>0 {continue}	if dis.cnt>0 {continue}					;空きフラグを探す
+		eh+
+		eh2.cnt=45											;向かう角度を求める
+		tf.cnt=1										;フラグオン
+		tc.cnt=hontai										;色
+		ts.cnt=48
+		zhp.cnt=bhp
+		
+		tx.cnt=(int(exa)-20)*1000 :ty.cnt=int(eya+115)*1000		;位置に弾発生(1000倍）
+		txv.cnt=0 : tyv.cnt=0			;移動方向
+
+		//当たり判定の範囲
+		hitchklenghx.cnt=50
+		hitchklenghy.cnt=5
+
+		//中心座標用加算変数
+		tcplusx.cnt=0
+		tcplusy.cnt=0
+		
+		if eh=1 : eh=0 : break							;1発発射してループを抜ける
+	loop
+	turn+=1
+	
+	return
+*boss1
+
+	noteget exa,1
+	noteget eya,2
+	noteget dhp,3
+	bhp=int(dhp)
+	//大ボス発生
+	
+	repeat tmax
+		if tf.cnt>0 {continue} if dis.cnt>0 {continue}							;空きフラグを探す
+		eh+
+		eh2.cnt=90											;向かう角度を求める
+		tf.cnt=1										;フラグオン
+		tc.cnt=255										;色
+		ts.cnt=12
+		zhp.cnt=bhp
+		
+		tx.cnt=int(exa)*1000 :ty.cnt=int(eya)*1000		;位置に弾発生(1000倍）
+		txv.cnt=cosa(eh2.cnt)/10 : tyv.cnt=sina(eh2.cnt)/10			;移動方向
+
+		//当たり判定の範囲
+		hitchklenghx.cnt=64
+		hitchklenghy.cnt=32
+
+		//中心座標用加算変数
+		tcplusx.cnt=60
+		tcplusy.cnt=32
+		
+		if eh=1 : eh=0 : break							;1発発射してループを抜ける
+	loop
+
+	turn+=1
+	
+	return
+*boss2
+
+	noteget exa,1
+	noteget eya,2
+	noteget dhp,3
+	bhp=int(dhp)
+	//大ボス発生
+	
+	repeat tmax
+		if tf.cnt>0 {continue} if dis.cnt>0 {continue}							;空きフラグを探す
+		eh+
+		eh2.cnt=0										;向かう角度を求める
+		tf.cnt=1										;フラグオン
+		tc.cnt=255										;色
+		ts.cnt=25
+		zhp.cnt=bhp
+		
+		tx.cnt=int(exa)*1000 :ty.cnt=int(eya)*1000		;位置に弾発生(1000倍）
+		txv.cnt=cosa(eh2.cnt)/10 : tyv.cnt=sina(eh2.cnt)/10			;移動方向
+
+		//当たり判定の範囲
+		hitchklenghx.cnt=15
+		hitchklenghy.cnt=32
+
+		//中心座標用加算変数
+		tcplusx.cnt=25
+		tcplusy.cnt=40
+		
+		if eh=1 : eh=0 : break							;1発発射してループを抜ける
+	loop
+
+	turn+=1
+	
+	return
+*put_item
+	
+
+	repeat tmax
+		if tf.cnt>0 {continue} if dis.cnt>0 {continue}							;空きフラグを探す
+		eh+
+		eh2.cnt=270 
+		tf.cnt=1										;フラグオン
+		ts.cnt=4
+	
+		//当たり判定の範囲
+		hitchklenghx.cnt=20
+		hitchklenghy.cnt=20
+
+		//中心座標用加算変数
+		tcplusx.cnt=0
+		tcplusy.cnt=9
+		
+		tc.cnt=255											;色
+		tx.cnt=(tx2.target+9)*1000 :ty.cnt=ty2.target*1000	;位置に弾発生(1000倍）
+		txv.cnt=cosa(eh2.cnt)/5 : tyv.cnt=sina(eh2.cnt)/5	;移動方向
+		if eh=1 : eh=0 : break								;36発発射してループを抜ける
+	loop
+
+	return
+*put_item2
+	
+
+	repeat tmax
+		if tf.cnt>0 {continue} if dis.cnt>0 {continue}							;空きフラグを探す
+		eh+
+		eh2.cnt=270 
+		tf.cnt=1										;フラグオン
+		ts.cnt=21
+	
+		//当たり判定の範囲
+		hitchklenghx.cnt=32
+		hitchklenghy.cnt=27
+
+		//中心座標用加算変数
+		tcplusx.cnt=16
+		tcplusy.cnt=13
+		
+		tc.cnt=255											;色
+		tx.cnt=(tx2.target+9)*1000 :ty.cnt=ty2.target*1000	;位置に弾発生(1000倍）
+		txv.cnt=cosa(eh2.cnt)/8 : tyv.cnt=sina(eh2.cnt)/8	;移動方向
+		if eh=1 : eh=0 : break								;36発発射してループを抜ける
+	loop
+
+	return
+*put_enemyshot1
+
+	if mutekif>=1:return
+
+	getsankak target
+	
+	repeat tmax
+		if tf.cnt>0 {continue} if dis.cnt>0 {continue}							;空きフラグを探す
+		eh+
+		if b-2<0:b+360;向かう角度を求める
+		eh2.cnt=b-2
+		
+		tf.cnt=1										;フラグオン
+		tc.cnt=255										;色
+		ts.cnt=2										;敵球フラグ恩
+		if type=2:ts.cnt=27
+		
+		tx.cnt=tx2.target*1000 :ty.cnt=ty2.target*1000		;位置に弾発生(1000倍）
+		if type=2:tx.cnt=tcx.target*1000 :ty.cnt=tcy.target*1000
+
+		if eh2.cnt<0	:eh2.cnt=2
+		if eh2.cnt>360:eh2.cnt=1	//内部エラー封じ
+		
+		txv.cnt=cosa(eh2.cnt)/5
+		tyv.cnt=sina(eh2.cnt)/5	;移動方向
+		if type=2{
+			txv.cnt=cosa(eh2.cnt)/spd
+			tyv.cnt=sina(eh2.cnt)/spd	;移動方向
+		}
+
+		//当たり判定の範囲
+		hitchklenghx.cnt=2
+		hitchklenghy.cnt=2
+
+		//中心座標用加算変数
+		tcplusx.cnt=2
+		tcplusy.cnt=2
+		if type=2{
+			//当たり判定の範囲
+			hitchklenghx.cnt=10
+			hitchklenghy.cnt=10
+	
+			//中心座標用加算変数
+			tcplusx.cnt=10
+			tcplusy.cnt=10
+	}
+		
+		if eh=1 : eh=0 : break							;1発発射してループを抜ける
+	loop
+	
+	return
+*houtyou
+
+	if mutekif>=1:return
+
+	
+	repeat tmax
+		if tf.cnt>0 {continue} if dis.cnt>0 {continue}							;空きフラグを探す
+		eh+
+		eh2.cnt=90									;向かう角度を求める
+		tf.cnt=1										;フラグオン
+		tc.cnt=255										;色
+		ts.cnt=19										;敵球フラグ恩
+		tk.cnt=double(2.0*3.1415926535897932384626433832795)
+		
+		tx.cnt=tx2.target*1000 :ty.cnt=ty2.target*1000		;位置に弾発生(1000倍）
+		txv.cnt=cosa(eh2.cnt)/2
+		tyv.cnt=sina(eh2.cnt)/2	;移動方向
+
+		//当たり判定の範囲
+		hitchklenghx.cnt=5
+		hitchklenghy.cnt=5
+
+		//中心座標用加算変数
+		tcplusx.cnt=-2
+		tcplusy.cnt=5
+		
+		if eh=1 : eh=0 : break							;1発発射してループを抜ける
+	loop
+	
+	return
+*houtyou2
+
+	if mutekif>=1:return
+
+	getsankak target
+	repeat tmax
+		if tf.cnt>0 {continue} if dis.cnt>0 {continue}							;空きフラグを探す
+		eh+
+		eh2.cnt=b									;向かう角度を求める
+		tf.cnt=1										;フラグオン
+		tc.cnt=11										;色
+		ts.cnt=19										;敵球フラグ恩
+		modc=double((eh2.cnt+290)*3.1415926535897932384626433832795)/180
+		tk.cnt=modc
+		
+		tx.cnt=tx2.target*1000 :ty.cnt=ty2.target*1000		;位置に弾発生(1000倍）
+
+		if eh2.cnt<0	:eh2.cnt=2
+		if eh2.cnt>360:eh2.cnt=1	//内部エラー封じ
+		
+		txv.cnt=cosa(eh2.cnt)/2
+		tyv.cnt=sina(eh2.cnt)/2	;移動方向
+
+		//当たり判定の範囲
+		hitchklenghx.cnt=4
+		hitchklenghy.cnt=5
+
+		//中心座標用加算変数
+		tcplusx.cnt=-2
+		tcplusy.cnt=3
+		
+		if eh=1 : eh=0 : break							;1発発射してループを抜ける
+	loop
+	
+	return
+*houtyou3
+
+	if mutekif>=1:return
+
+	getsankak target
+	repeat tmax
+		if tf.cnt>0 {continue} if dis.cnt>0 {continue}							;空きフラグを探す
+		eh+
+		if eh\2=0:maikai=-1:else:maikai=1
+		
+		eh2.cnt=b+((eh-1)*5*(maikai)) : if eh2.cnt>359 : eh2.cnt-=360
+		if eh2.cnt<0:eh2.cnt+=360
+		
+		tf.cnt=1										;フラグオン
+		tc.cnt=11										;色
+		ts.cnt=19										;敵球フラグ恩
+		modc=double((eh2.cnt+290)*3.1415926535897932384626433832795)/180
+		tk.cnt=modc
+		
+		tx.cnt=tx2.target*1000 :ty.cnt=ty2.target*1000		;位置に弾発生(1000倍）
+
+		if eh2.cnt<0	:eh2.cnt=2
+		if eh2.cnt>360:eh2.cnt=1	//内部エラー封じ
+
+		txv.cnt=cosa(eh2.cnt)/2
+		tyv.cnt=sina(eh2.cnt)/2	;移動方向
+
+		//当たり判定の範囲
+		hitchklenghx.cnt=2
+		hitchklenghy.cnt=2
+
+		//中心座標用加算変数
+		tcplusx.cnt=0
+		tcplusy.cnt=3
+		
+		if eh=10 : eh=0 : break							;1発発射してループを抜ける
+	loop
+	
+	return
+*laser_ramon1
+
+
+	repeat tmax
+		if tf.cnt>0 {continue} if dis.cnt>0 {continue}							;空きフラグを探す
+		eh+
+		eh2.cnt=mukaukakudo									;向かう角度を求める
+		tf.cnt=1										;フラグオン
+		modc=double((eh2.cnt+287)*3.1415926535897932384626433832795)/180
+		tk.cnt=modc
+		ts.cnt=37										;敵球フラグ恩
+		if mode=1:ts.cnt=42
+		
+		
+			tx.cnt=(tcx.target+3)*1000 :ty.cnt=(tcy.target+14)*1000		;位置に弾発生(1000倍）
+		
+		//txv.cnt=cosa(eh2.cnt)/1
+		txv.cnt=0
+		tyv.cnt=0	;移動方向
+
+		//当たり判定の範囲
+		hitchklenghx.cnt=0
+		hitchklenghy.cnt=0
+
+		//中心座標用加算変数
+		tcplusx.cnt=0
+		tcplusy.cnt=0
+
+		
+
+			if ts.target=50{
+				if eh=1 : eh=0  :break
+			}else{
+				if eh=1 : eh=0  :ds_play 11:break							;1発発射してループを抜ける
+			}
+		
+	loop
+	
+	return
+*laser_ramon2
+
+
+	repeat tmax
+		if tf.cnt>0 {continue} if dis.cnt>0 {continue}							;空きフラグを探す
+		eh+
+		eh2.cnt=mukaukakudo									;向かう角度を求める
+		tf.cnt=1										;フラグオン
+		modc=double((eh2.cnt+287)*3.1415926535897932384626433832795)/180
+		tk.cnt=modc
+		hm.cnt=target			//	レーザーの発射もとのフラグ
+		
+		ts.cnt=42
+		
+		tx.cnt=(tcx.target+3)*1000 :ty.cnt=(tcy.target+14)*1000		;位置に弾発生(1000倍）
+		//txv.cnt=cosa(eh2.cnt)/1
+		txv.cnt=cosa(eh2.cnt)/spd
+		tyv.cnt=sina(eh2.cnt)/spd	;移動方向
+
+		//当たり判定の範囲
+		hitchklenghx.cnt=0
+		hitchklenghy.cnt=0
+
+		//中心座標用加算変数
+		tcplusx.cnt=0
+		tcplusy.cnt=0
+		
+		if eh=1 : eh=0  :ds_play 11:break							;1発発射してループを抜ける
+	loop
+	
+	return
+*laser_ramon3
+	//見えないが当たり判定のある弾をレーザー上におく
+
+
+	repeat tmax
+		if tf.cnt>0 {continue} if dis.cnt>0 {continue}							;空きフラグを探す
+		eh+
+		eh2.cnt=mukaukakudo									;向かう角度を求める
+		tf.cnt=1										;フラグオン
+		modc=double((eh2.cnt+287)*3.1415926535897932384626433832795)/180
+		tk.cnt=modc
+		
+		ts.cnt=43
+		
+		tx.cnt=(tcx.target+3)*1000 :ty.cnt=(tcy.target+14)*1000		;位置に弾発生(1000倍）
+		//txv.cnt=cosa(eh2.cnt)/1
+		
+		if eh2.cnt<0	:eh2.cnt=2
+		if eh2.cnt>360:eh2.cnt=1	//内部エラー封じ
+
+
+		txv.cnt=cosa(eh2.cnt)/spd
+		tyv.cnt=sina(eh2.cnt)/spd	;移動方向
+
+		//当たり判定の範囲
+		hitchklenghx.cnt=8
+		hitchklenghy.cnt=8
+
+		//中心座標用加算変数
+		tcplusx.cnt=-2
+		tcplusy.cnt=0
+		
+		if eh=1 : eh=0  :break							;1発発射してループを抜ける
+	loop
+	
+	return
+*c_cannon
+
+
+	repeat tmax
+		if tf.cnt>0 {continue} if dis.cnt>0 {continue}							;空きフラグを探す
+		eh+
+		eh2.cnt=mukaukakudo									;向かう角度を求める
+		tf.cnt=1										;フラグオン
+		modc=double((eh2.cnt+287)*3.1415926535897932384626433832795)/180
+		tk.cnt=modc
+		ts.cnt=37										;敵球フラグ恩
+		if mode=1:ts.cnt=42
+		
+		tx.cnt=(tcx.target+3)*1000 :ty.cnt=(tcy.target+14)*1000		;位置に弾発生(1000倍）
+		//txv.cnt=cosa(eh2.cnt)/1
+		txv.cnt=0
+		tyv.cnt=0	;移動方向
+
+		//当たり判定の範囲
+		hitchklenghx.cnt=0
+		hitchklenghy.cnt=0
+
+		//中心座標用加算変数
+		tcplusx.cnt=0
+		tcplusy.cnt=0
+		
+		if eh=1 : eh=0  :ds_play 11:break							;1発発射してループを抜ける
+	loop
+	
+	return
+*laser
+
+	if mutekif>=1:return
+	
+	repeat tmax
+		if tf.cnt>0 {continue} if dis.cnt>0 {continue}							;空きフラグを探す
+		eh+
+		if eh=1:eh2.cnt=300
+		if eh=2:eh2.cnt=320
+		if eh=3:eh2.cnt=340
+		if eh=4:eh2.cnt=240
+		if eh=5:eh2.cnt=220
+		if eh=6:eh2.cnt=200;向かう角度を求める
+		tf.cnt=1										;フラグオン
+		tc.cnt=target										;色
+		ts.cnt=20										;敵球フラグ恩
+		
+		tx.cnt=tx2.target*1000 :ty.cnt=ty2.target*1000		;位置に弾発生(1000倍）
+		if ts.target=44:tx.cnt=tcx.target*1000 :ty.cnt=tcy.target*1000		;位置に弾発生(1000倍）
+		if ts.target=50:tx.cnt=tcx.target*1000 :ty.cnt=tcy.target*1000		;位置に弾発生(1000倍）
+		
+		txv.cnt=cosa(eh2.cnt)/5
+		tyv.cnt=sina(eh2.cnt)/5	;移動方向
+
+		//当たり判定の範囲
+		hitchklenghx.cnt=1
+		hitchklenghy.cnt=1
+		//中心座標用加算変数
+		tcplusx.cnt=1
+		tcplusy.cnt=1
+		
+		if eh=6 : eh=0 : break							;1発発射してループを抜ける
+	loop
+	
+	return
+
+*endanmak
+
+	if mutekif>=1:return
+
+	getsankak target
+
+	repeat tmax
+		if tf.cnt>0 {continue} if dis.cnt>0 {continue}							;空きフラグを探す
+		eh+
+		eh2.cnt=(eh-1)*10+(pt*5) : if eh2.cnt>359 : eh2.cnt-=360	;発射角度を求める
+		tf.cnt=1										;フラグオン
+		ts.cnt=2
+		if type=6:ts.cnt=26
+		
+		tc.cnt=255										;色
+		tx.cnt=(tx2.target+8)*1000 :ty.cnt=(ty2.target-3)*1000	;位置に弾発生(1000倍）
+		
+		if eh2.cnt<0	:eh2.cnt=2
+		if eh2.cnt>360:eh2.cnt=1	//内部エラー封じ
+
+
+		txv.cnt=cosa(eh2.cnt)/5 : tyv.cnt=sina(eh2.cnt)/5			;移動方向
+		
+		if ts.target=12:tx.cnt=(tcx.target)*1000 :ty.cnt=(tcy.target)*1000	;位置に弾発生(1000倍）
+		if ts.target=25:tx.cnt=(tcx.target)*1000 :ty.cnt=(tcy.target)*1000	;位置に弾発生(1000倍）
+
+		//当たり判定の範囲
+		hitchklenghx.cnt=3
+		hitchklenghy.cnt=3
+
+		//中心座標用加算変数
+		tcplusx.cnt=2
+		tcplusy.cnt=2
+		
+		if eh=36 : eh=0 : break							;36発発射してループを抜ける
+	loop
+
+	return
+*neraiendanmak
+
+	if mutekif>=1:return
+
+	getsankak target
+
+	repeat tmax
+		if tf.cnt>0 {continue} if dis.cnt>0 {continue}							;空きフラグを探す
+		eh+
+		eh2.cnt=b+6+(eh-1)*10 : if eh2.cnt>359 : eh2.cnt-=360	;発射角度を求める
+		tf.cnt=1										;フラグオン
+		ts.cnt=24
+		
+		tc.cnt=255										;色
+		tx.cnt=(tx2.target+8)*1000 :ty.cnt=(ty2.target-3)*1000	;位置に弾発生(1000倍）
+		txv.cnt=cosa(eh2.cnt)/3 : tyv.cnt=sina(eh2.cnt)/3			;移動方向
+		
+
+		if eh2.cnt<0	:eh2.cnt=2
+		if eh2.cnt>360:eh2.cnt=1	//内部エラー封じ
+
+
+
+		if ts.target=12:tx.cnt=(tcx.target)*1000 :ty.cnt=(tcy.target)*1000	;位置に弾発生(1000倍）
+		if ts.target=25:tx.cnt=(tcx.target)*1000 :ty.cnt=(tcy.target)*1000	;位置に弾発生(1000倍）
+
+		//当たり判定の範囲
+		hitchklenghx.cnt=3
+		hitchklenghy.cnt=3
+
+		//中心座標用加算変数
+		tcplusx.cnt=2
+		tcplusy.cnt=2
+		
+		if eh=36 : eh=0 : break							;36発発射してループを抜ける
+	loop
+
+	return
+*danmak2
+
+	if mutekif>=1:return
+
+	getsankak target
+
+	repeat tmax
+		if tf.cnt>0 {continue} if dis.cnt>0 {continue}							;空きフラグを探す
+		eh+
+		if eh\2=0:maikai=-1:else:maikai=1
+		
+		eh2.cnt=b-2+(eh*5*(maikai)) : if eh2.cnt>359 : eh2.cnt-=360
+		if eh2.cnt<0:eh2.cnt+=360
+		tf.cnt=1										;フラグオン
+		ts.cnt=7
+		
+		tc.cnt=255										;色
+		tx.cnt=(tx2.target+8)*1000 :ty.cnt=(ty2.target-3)*1000	;位置に弾発生(1000倍）
+		
+		if eh2.cnt<0	:eh2.cnt=2
+		if eh2.cnt>360:eh2.cnt=1	//内部エラー封じ
+
+
+		txv.cnt=cosa(eh2.cnt)/5 : tyv.cnt=sina(eh2.cnt)/5			;移動方向
+
+
+		if ts.target=6{
+			tx.cnt=(tcx.target-14)*1000 :ty.cnt=tcy.target*1000
+			txv.cnt=cosa(eh2.cnt)/3:tyv.cnt=sina(eh2.cnt)/3
+		}
+		if ts.target=12{
+			tx.cnt=(tcx.target-5)*1000 :ty.cnt=(tcy.target)*1000
+			txv.cnt=cosa(eh2.cnt)/5:tyv.cnt=sina(eh2.cnt)/5
+		}
+
+		//当たり判定の範囲
+		hitchklenghx.cnt=3
+		hitchklenghy.cnt=3
+
+		//中心座標用加算変数
+		tcplusx.cnt=2
+		tcplusy.cnt=2
+		
+		if eh=6 : eh=0 : break							;36発発射してループを抜ける
+	loop
+
+	return
+*danmak3
+
+	if mutekif>=1:return
+
+	getsankak target
+
+	repeat tmax
+		if tf.cnt>0 {continue} if dis.cnt>0 {continue}							;空きフラグを探す
+		eh+
+		if eh\2=0:maikai=-1:else:maikai=1
+		
+		eh2.cnt=b-2+(eh*5*(maikai)) : if eh2.cnt>359 : eh2.cnt-=360
+		tf.cnt=1										;フラグオン
+		ts.cnt=10
+		
+		tc.cnt=255										;色
+		tx.cnt=(tx2.target+8)*1000 :ty.cnt=(ty2.target-3)*1000	;位置に弾発生(1000倍）
+		
+		if eh2.cnt<0	:eh2.cnt=2
+		if eh2.cnt>360:eh2.cnt=1	//内部エラー封じ
+
+
+		txv.cnt=cosa(eh2.cnt)/3 : tyv.cnt=sina(eh2.cnt)/3			;移動方向
+
+		if ts.target=12{
+			tx.cnt=(tcx.target-14)*1000 :ty.cnt=(tcy.target+10)*1000
+			txv.cnt=cosa(eh2.cnt)/3:tyv.cnt=sina(eh2.cnt)/3
+		}
+		if ts.target=31{
+			
+			txv.cnt=cosa(eh2.cnt)/2:tyv.cnt=sina(eh2.cnt)/2
+		}
+
+		//当たり判定の範囲
+		hitchklenghx.cnt=3
+		hitchklenghy.cnt=3
+
+		//中心座標用加算変数
+		tcplusx.cnt=2
+		tcplusy.cnt=2
+		
+		if eh=3 : eh=0 : break							;36発発射してループを抜ける
+	loop
+
+	return
+*danmak4
+
+	if mutekif>=1:return
+
+	repeat tmax
+		if tf.cnt>0 {continue} if dis.cnt>0 {continue}							;空きフラグを探す
+		eh+
+		if eh\2=0:maikai=-1:else:maikai=1
+		
+		eh2.cnt=0
+		tf.cnt=1										;フラグオン
+		ts.cnt=13
+		
+		tc.cnt=255										;色
+		if ts.target!14{
+			if eh=1:	tx.cnt=(tcx.target+52)*1000	:	ty.cnt=(tcy.target-15)*1000
+			if eh=2:	tx.cnt=(tcx.target-57)*1000	:	ty.cnt=(tcy.target-15)*1000
+			if eh=3:	tx.cnt=(tcx.target+50)*1000	:	ty.cnt=(tcy.target-30)*1000
+			if eh=4:	tx.cnt=(tcx.target-55)*1000	:	ty.cnt=(tcy.target-30)*1000
+			if eh=5:	tx.cnt=(tcx.target+50)*1000	:	ty.cnt=(tcy.target+7)*1000
+			if eh=6:	tx.cnt=(tcx.target-55)*1000	:	ty.cnt=(tcy.target+7)*1000
+		}
+		if ts.target=14:tx.cnt=(tcx.target-10)*1000	:	ty.cnt=(tcy.target)*1000
+		
+		txv.cnt=0 : tyv.cnt=0			;移動方向
+
+		//当たり判定の範囲
+		hitchklenghx.cnt=3
+		hitchklenghy.cnt=3
+
+		//中心座標用加算変数
+		tcplusx.cnt=2
+		tcplusy.cnt=2
+
+		if ts.target=14{
+			if eh=1: eh=0 : break
+		}
+		
+		if eh=6 : eh=0 : break							;36発発射してループを抜ける
+	loop
+
+	return
+*uzudanmak
+	if mutekif=1:return
+	getsankaktcy target
+	repeat tmax
+		if tf.cnt>0 {continue} if dis.cnt>0 {continue}							;空きフラグを探す
+		eh+
+		tf.cnt=1										;フラグオン
+		ts.cnt=10
+		if type=0:ts.cnt=10
+		if type=4:ts.cnt=24
+		if type=1:ts.cnt=7
+		if type=2:ts.cnt=10
+		if type=3:ts.cnt=7
+		if type=5:ts.cnt=7
+		if type=6:ts.cnt=26
+		if type=7:ts.cnt=10
+		if type=8:tx.cnt=7
+		if type=9:ts.cnt=56
+		tc.cnt=255										;色
+		if type=0:eh2.cnt=(eh-1)*30+(frame\60) : if eh2.cnt>359 : eh2.cnt-=360
+		if type=4:eh2.cnt=(eh-1)*30+(frame\60) : if eh2.cnt>359 : eh2.cnt-=360
+		if type=1:eh2.cnt=(eh-1)*60+(frame\60) : if eh2.cnt>359 : eh2.cnt-=360
+		if type=2:eh2.cnt=(eh-1)*30+(frame\60) : if eh2.cnt>359  : eh2.cnt-=360
+		if type=3:eh2.cnt=(eh-1)*30+(frame\60) : if eh2.cnt>359 : eh2.cnt-=360
+		if type=5:eh2.cnt=(eh-1)*30+(frame\60) : if eh2.cnt>359 : eh2.cnt-=360
+		if type=6:eh2.cnt=(eh-1)*30+(frame\60) : if eh2.cnt>359 : eh2.cnt-=360
+		if type=7:eh2.cnt=60+(frame\2*5)+(eh-1)*5				: if eh2.cnt>359 : eh2.cnt-=360
+		if type=8:eh2.cnt=(eh-1)*10+(frame\60) : if eh2.cnt>359 : eh2.cnt-=360
+		if type=9:eh2.cnt=(eh-1)*30+(frame\60) : if eh2.cnt>359 : eh2.cnt-=360
+		tx.cnt=(tcx.target)*1000 :ty.cnt=(tcy.target)*1000
+		if ts.target=12:tx.cnt=(tcx.target)*1000 :ty.cnt=(tcy.target)*1000	;位置に弾発生(1000倍）
+		if ts.target=18:tx.cnt=(tcx.target)*1000 :ty.cnt=(tcy.target)*1000		
+		if ts.target=44:tx.cnt=(tcx.target)*1000 :ty.cnt=(tcy.target)*1000		
+		if type=5:tx.cnt=(tcx.target+20)*1000 :ty.cnt=(tcy.target-20)*1000
+
+		if eh2.cnt<0	:eh2.cnt=2
+		if eh2.cnt>360:eh2.cnt=1	//内部エラー封じ
+		txv.cnt=cosa(eh2.cnt)/spd : tyv.cnt=sina(eh2.cnt)/spd
+
+		//当たり判定の範囲
+		hitchklenghx.cnt=3
+		hitchklenghy.cnt=3
+
+		//中心座標用加算変数
+		tcplusx.cnt=2
+		tcplusy.cnt=2
+		
+		if eh=12 : eh=0 : break							;36発発射してループを抜ける
+	loop
+
+	return
+*gyakuuzudanmak
+	if mutekif=1:return
+	
+	repeat tmax
+		if tf.cnt>0 {continue} if dis.cnt>0 {continue}							;空きフラグを探す
+		eh+
+		tf.cnt=1										;フラグオン
+		ts.cnt=10
+		if type=0:ts.cnt=10
+		if type=4:ts.cnt=24
+		if type=1:ts.cnt=7
+		if type=2:ts.cnt=10
+		if type=3:ts.cnt=7
+		if type=5:ts.cnt=10
+		if type=8:ts.cnt=10
+		
+		tc.cnt=255										;色
+		if type=0:eh2.cnt=(eh-1)*-30-(frame\60) : if eh2.cnt<0 : eh2.cnt+=360:if eh2.cnt<0:eh2.cnt+=360
+		if type=4:eh2.cnt=(eh-1)*-30-(frame\60) : if eh2.cnt<0 : eh2.cnt+=360:if eh2.cnt<0:eh2.cnt+=360
+		if type=1:eh2.cnt=(eh-1)*-60-(frame\60) : if eh2.cnt<0 : eh2.cnt+=360:if eh2.cnt<0:eh2.cnt+=360
+		if type=2:eh2.cnt=(eh-1)*-30-(frame\60) : if eh2.cnt<0 : eh2.cnt+=360:if eh2.cnt<0:eh2.cnt+=360
+		if type=3:eh2.cnt=(eh-1)*-30-(frame\60) : if eh2.cnt<0 : eh2.cnt+=360:if eh2.cnt<0:eh2.cnt+=360
+		if type=5:eh2.cnt=(eh-1)*-30-(frame\60) : if eh2.cnt<0 : eh2.cnt+=360:if eh2.cnt<0:eh2.cnt+=360
+		if type=8:eh2.cnt=(eh-1)*-10-(frame\60) : if eh2.cnt<0 : eh2.cnt+=360:if eh2.cnt<0:eh2.cnt+=360
+		if type=9:eh2.cnt=(eh-1)*-10-(frame\60) : if eh2.cnt<0 : eh2.cnt+=360:if eh2.cnt<0:eh2.cnt+=360
+		tx.cnt=(tcx.target)*1000 :ty.cnt=(tcy.target)*1000
+		if ts.target=12:tx.cnt=(tcx.target)*1000 :ty.cnt=(tcy.target)*1000	;位置に弾発生(1000倍）
+		if ts.target=18:tx.cnt=(tcx.target)*1000 :ty.cnt=(tcy.target)*1000		
+		if type=5:tx.cnt=(tcx.target-20)*1000 :ty.cnt=(tcy.target-25)*1000
+
+		if eh2.cnt<0	:eh2.cnt=2
+		if eh2.cnt>360:eh2.cnt=1	//内部エラー封じ
+
+		txv.cnt=cosa(eh2.cnt)/spd : tyv.cnt=sina(eh2.cnt)/spd
+
+		//当たり判定の範囲
+		hitchklenghx.cnt=3
+		hitchklenghy.cnt=3
+
+		//中心座標用加算変数
+		tcplusx.cnt=2
+		tcplusy.cnt=2
+		
+		if eh=12 : eh=0 : break							;36発発射してループを抜ける
+	loop
+
+	return
+*uzudanmak2
+	if mutekif=1:return
+	
+	repeat tmax
+		if tf.cnt>0 {continue} if dis.cnt>0 {continue}							;空きフラグを探す
+		eh+
+		tf.cnt=1										;フラグオン
+		ts.cnt=10
+		if type=0:ts.cnt=10
+		if type=1:ts.cnt=7	
+		tc.cnt=255										;色
+		if type=0{
+			eh2.cnt=45+(eh*10):if eh2.cnt>359 : eh2.cnt-=360
+			if eh2.cnt<=0:eh2.cnt=350
+			if eh\2=0:spd+=1
+		}
+		if type=1{
+			eh2.cnt=125-(eh*10):if eh2.cnt>359 : eh2.cnt-=360
+			if eh2.cnt<=0:eh2.cnt=350
+			if eh\2=0:spd+=1
+		}
+		if ts.target=12:tx.cnt=(tcx.target)*1000 :ty.cnt=(tcy.target)*1000	;位置に弾発生(1000倍）
+		if ts.target=18:tx.cnt=(tcx.target)*1000 :ty.cnt=(tcy.target)*1000
+		
+		if eh2.cnt<0	:eh2.cnt=2
+		if eh2.cnt>360:eh2.cnt=1	//内部エラー封じ
+
+
+		txv.cnt=cosa(eh2.cnt)/spd : tyv.cnt=sina(eh2.cnt)/spd
+
+		//当たり判定の範囲
+		hitchklenghx.cnt=3
+		hitchklenghy.cnt=3
+
+		//中心座標用加算変数
+		tcplusx.cnt=2
+		tcplusy.cnt=2
+		
+		if eh=20 : eh=0 : break							;36発発射してループを抜ける
+	loop
+
+	return
+*china_cannon
+
+	repeat tmax
+		if tf.cnt>0 {continue} if dis.cnt>0 {continue}							;空きフラグを探す
+		eh+
+		eh2.cnt=90								;向かう角度を求める
+		tf.cnt=1										;フラグオン
+		modc=double((eh2.cnt+287)*3.1415926535897932384626433832795)/180
+		tk.cnt=modc
+		ts.cnt=52										;敵球フラグ恩
+		if mode=1:ts.cnt=52
+		
+		tx.cnt=(tcx.target+3)*1000 :ty.cnt=(tcy.target+14)*1000		;位置に弾発生(1000倍）
+		//txv.cnt=cosa(eh2.cnt)/1
+		txv.cnt=0
+		tyv.cnt=0	;移動方向
+
+		//当たり判定の範囲
+		hitchklenghx.cnt=0
+		hitchklenghy.cnt=0
+
+		//中心座標用加算変数
+		tcplusx.cnt=0
+		tcplusy.cnt=0
+		
+		if eh=1 : eh=0  :break							;1発発射してループを抜ける
+	loop
+	
+	return
+
+
+*object_move
+//----------------------------オブジェクト移動
+	
+		sonzai=0
+	foreach tf
+		if tf.cnt=-1:break
+		if tf.cnt<1 :continue						;存在する弾だけ
+		sonzai+=1
+
+		
+		tx.cnt+=txv.cnt : ty.cnt+=tyv.cnt			;移動処理
+		tx2.cnt=tx.cnt/1000 : ty2.cnt=ty.cnt/1000	;表示用座標を求める
+
+		;当たり判定用中心座標↓
+		tcx.cnt=tx2.cnt+tcplusx.cnt
+		tcy.cnt=ty2.cnt+tcplusy.cnt
+		
+		if (tx2.cnt>355)|(tx2.cnt<-64)|(ty2.cnt<-64)|(ty2.cnt>440)&ts.cnt!42{
+
+				if ts.cnt=14:fantao+=1
+				if (ts.cnt=44) : gook += 1 : dis.cnt = 1
+				
+				tf.cnt=0
+				ts.cnt=0
+				objtimek.cnt=0:objtimek2.cnt=0:objtimek3.cnt=0
+				txv.cnt=0
+				tyv.cnt=0
+				continue
+		
+		}
+										;画面外なら消す
+		pos tx2.cnt-4,ty2.cnt-4
+
+		switch ts.cnt
+		
+//----------------------------敵１の処理
+
+		case 1
+			gosub *eone
+			swbreak
+		
+//----------------------------敵２の処理
+
+		swbreak:case 5
+			if dis.cnt=0{
+				objtimek.cnt+=1
+				gmode 2,32,32
+				gcopy 4,0,31,31,31
+				if objtimek.cnt<=150&objtimek.cnt>=50{
+					if objtimek.cnt<=50+1*30&objtimek.cnt>=50{
+						target=cnt
+						if objtimek.cnt\30=1:gosub *endanmak
+						target=0
+					}
+				}
+				if objtimek.cnt=50{
+					resetmove cnt,270,5
+				}
+					
+			}else{
+
+				nohit cnt
+				
+				if dis.cnt=1{
+					target=cnt
+					gosub *put_item
+					target=0
+					dis.cnt=2
+				}
+				objtimek.cnt+=1
+				
+				if objtimek.cnt>=5:objtimek.cnt=0:objtimek2.cnt+=1
+				objtimek3.cnt=objtimek2.cnt*32
+				gmode 2,32,32
+				gcopy 4,objtimek3.cnt,31,31,31
+				if objtimek2.cnt>9{
+					objtimek.cnt=0:objtimek2.cnt=0:objtimek3.cnt=0
+					ts.cnt=0:dis.cnt=0:tf.cnt=0
+					
+				}
+				
+			}
+				
+		swbreak
+		
+
+//----------------------------敵７の処理
+
+		case 23
+			if dis.cnt=0{
+				objtimek.cnt+=1
+				gmode 2,32,32
+				gcopy 4,0,94,32,32
+				if objtimek.cnt<=500&objtimek.cnt>=50{
+					if objtimek.cnt<=50+50*7&objtimek.cnt>=50{
+						target=cnt:spd=6:type=4			;スピード設定わすれずに
+						if objtimek.cnt\7=0:gosub *uzudanmak
+						target=0:spd=0:type=0
+					}
+				}
+				if objtimek.cnt=50{
+					txv.cnt=0:tyv.cnt=0
+					
+				}
+				if objtimek.cnt=500{
+					resetmove cnt,270,5
+				}
+					
+			}else{
+				if zhp.cnt>0:break
+				nohit cnt
+				
+				if dis.cnt=1{
+					target=cnt
+					gosub *put_item
+					target=0
+					dis.cnt=2
+				}
+				objtimek.cnt+=1
+				
+				if objtimek.cnt>=5:objtimek.cnt=0:objtimek2.cnt+=1
+				objtimek3.cnt=objtimek2.cnt*32
+				gmode 2,32,32
+				gcopy 4,objtimek3.cnt,31,31,31
+				if objtimek2.cnt>9{
+					objtimek.cnt=0:objtimek2.cnt=0:objtimek3.cnt=0
+					ts.cnt=0:dis.cnt=0
+					
+				}
+				
+			}
+				
+swbreak
+//----------------------------敵３の処理
+//オブジェクトフレームに＋１する。
+//50～150フレームの間に１発弾を撃つ
+//dis.cnt=1だったら、当たり判定をマイナスにして
+//カウントプログラムで消滅画像表示表示
+//アイテムフラグを立て,当たり判定を設定する
+		case 9
+			if dis.cnt=0{
+				objtimek.cnt+=1
+				gmode 2,35,30
+				gcopy 4,0,62,35,30
+				if objtimek.cnt<=150&objtimek.cnt>=20{
+					eh2.cnt+=20:if eh2.cnt>=270:eh2.cnt=270
+					txv.cnt=cosa(eh2.cnt)/5 : tyv.cnt=sina(eh2.cnt)/5
+					if objtimek.cnt<=20+0*1&objtimek.cnt>=20{
+						target=cnt:speed=3
+						gosub *danmak3
+						target=0:speed=0
+						objtimek.cnt=0
+					}
+				}
+			}else{
+				if dis.cnt=1{
+					target=cnt
+					gosub *put_item
+					target=0
+					dis.cnt=2
+				}
+				objtimek.cnt+=1
+				
+				//当たり判定の範囲
+				hitchklenghx.cnt=-1000
+				hitchklenghy.cnt=-1000
+			
+				//中心座標用加算変数
+				tcplusx.cnt=-1000
+				tcplusy.cnt=-1000
+
+				if objtimek.cnt>=5:objtimek.cnt=0:objtimek2.cnt+=1
+				objtimek3.cnt=objtimek2.cnt*32
+				gmode 2,32,32
+				gcopy 4,objtimek3.cnt,0,32,32
+				if objtimek2.cnt>9{
+					objtimek.cnt=0:objtimek2.cnt=0:objtimek3.cnt=0
+					ts.cnt=0:dis.cnt=0:tf.cnt=0
+
+				}				
+			}				
+		swbreak
+//----------------------------敵6の処理
+//オブジェクトフレームに＋１する。
+//50～150フレームの間に１発弾を撃つ
+//dis.cnt=1だったら、当たり判定をマイナスにして
+//カウントプログラムで消滅画像表示表示
+//アイテムフラグを立て,当たり判定を設定する
+		case 22
+			if dis.cnt=0{
+				objtimek.cnt+=1
+				gmode 2,35,30
+				gcopy 4,0,62,35,30
+				if objtimek.cnt<=150&objtimek.cnt>=20{
+					eh2.cnt-=20:if eh2.cnt<0:eh2.cnt=340
+					if eh2.cnt<=270:eh2.cnt=270
+					txv.cnt=cosa(eh2.cnt)/5 : tyv.cnt=sina(eh2.cnt)/5
+					if objtimek.cnt<=20+0*1&objtimek.cnt>=20{
+						target=cnt:speed=3
+						gosub *danmak3
+						target=0:speed=0
+						objtimek.cnt=0
+					}
+				}
+			}else{
+				if dis.cnt=1{
+					target=cnt
+					gosub *put_item
+					target=0
+					dis.cnt=2
+				}
+				objtimek.cnt+=1
+				
+				//当たり判定の範囲
+				hitchklenghx.cnt=-1000
+				hitchklenghy.cnt=-1000
+			
+				//中心座標用加算変数
+				tcplusx.cnt=-1000
+				tcplusy.cnt=-1000
+
+				if objtimek.cnt>=5:objtimek.cnt=0:objtimek2.cnt+=1
+				objtimek3.cnt=objtimek2.cnt*32
+				gmode 2,32,32
+				gcopy 4,objtimek3.cnt,0,32,32
+				if objtimek2.cnt>9{
+					objtimek.cnt=0:objtimek2.cnt=0:objtimek3.cnt=0
+					ts.cnt=0:dis.cnt=0:tf.cnt=0
+
+				}				
+			}				
+		swbreak
+//----------------------------敵4の処理
+
+		case 16
+			if dis.cnt=0{
+				objtimek.cnt+=1
+				gmode 2,32,32
+				gcopy 4,0,94,32,32
+
+				
+			}else{
+				
+				nohit cnt
+				
+				if dis.cnt=1{
+					target=cnt
+					gosub *put_item
+					target=0
+					dis.cnt=2
+				}
+				objtimek.cnt+=1
+				
+				if objtimek.cnt>=5:objtimek.cnt=0:objtimek2.cnt+=1
+				objtimek3.cnt=objtimek2.cnt*32
+				gmode 2,32,32
+				gcopy 4,objtimek3.cnt,94,32,32
+				if objtimek2.cnt>9{
+					objtimek.cnt=0:objtimek2.cnt=0:objtimek3.cnt=0
+					ts.cnt=0:dis.cnt=0:tf.cnt=0
+					txv.cnt=0 : tyv.cnt=0
+				}				
+			}				
+		swbreak
+//----------------------------敵5の処理
+
+		case 17
+			if dis.cnt=0{
+				objtimek.cnt+=1
+				gmode 2,32,32
+				gcopy 4,0,94,32,32
+
+				if objtimek.cnt<=70&objtimek.cnt>=25{
+					eh2.cnt+=9:if eh2.cnt>=359:eh2.cnt=0
+					txv.cnt=cosa(eh2.cnt)/1: tyv.cnt=sina(eh2.cnt)/1
+				}
+				if objtimek.cnt>=300{
+					objtimek.cnt=0
+				}
+			}else{
+				
+				nohit cnt
+				
+				if dis.cnt=1{
+					target=cnt
+					//gosub *put_item
+					gosub *endanmak
+					target=0
+					dis.cnt=2
+				}
+				objtimek.cnt+=1
+				
+				if objtimek.cnt>=5:objtimek.cnt=0:objtimek2.cnt+=1
+				objtimek3.cnt=objtimek2.cnt*32
+				gmode 2,32,32
+				gcopy 4,objtimek3.cnt,94,32,32
+				if objtimek2.cnt>9{
+					objtimek.cnt=0:objtimek2.cnt=0:objtimek3.cnt=0
+					ts.cnt=0:dis.cnt=0:tf.cnt=0
+					txv.cnt=0 : tyv.cnt=0
+				}				
+			}				
+
+	swbreak
+	
+//----------------------------敵9の処理
+
+		case 31
+			if dis.cnt=0{
+				objtimek.cnt+=1
+				gmode 2,32,32
+				gcopy 4,0,0,32,32
+
+				if objtimek.cnt<=50&objtimek.cnt>=0{
+					eh2.cnt+=2: if eh2.cnt>=180: eh2.cnt=180
+					resetmove cnt,eh2.cnt,2
+				}
+				if objtimek.cnt>=40{
+					eh2.cnt-=2: if eh2.cnt<=90: eh2.cnt=90
+					resetmove cnt,eh2.cnt,2
+				}
+				
+				if objtimek.cnt<=100&objtimek.cnt>=0{
+					if objtimek.cnt<=0+5*10&objtimek.cnt>=0{
+						target=cnt
+						if frame\10=0:gosub *danmak3
+						target=0
+						objtimek.cnt=0
+					}
+				}
+			}else{
+				
+				nohit cnt
+				
+				if dis.cnt=1{
+					target=cnt
+					gosub *put_item
+					target=0
+					dis.cnt=2
+				}
+				objtimek.cnt+=1
+				
+				if objtimek.cnt>=5:objtimek.cnt=0:objtimek2.cnt+=1
+				objtimek3.cnt=objtimek2.cnt*32
+				gmode 2,32,32
+				gcopy 4,objtimek3.cnt,0,32,32
+				if objtimek2.cnt>9{
+					objtimek.cnt=0:objtimek2.cnt=0:objtimek3.cnt=0
+					ts.cnt=0:dis.cnt=0:tf.cnt=0
+					txv.cnt=0 : tyv.cnt=0
+				}				
+			}				
+		swbreak
+//-----------------------------------渦弾幕プロペラ君
+	case 32
+			if dis.cnt=0{
+				objtimek.cnt+=1
+				gmode 2,32,32
+				gcopy 4,0,31,31,31
+				if objtimek.cnt<=150&objtimek.cnt>=50{
+					if objtimek.cnt<=50+10*3&objtimek.cnt>=50{
+						target=cnt:spd=5:type=2
+						if objtimek.cnt\3=1:gosub *uzudanmak
+						target=0:spd=0:type=0
+					}
+				}
+				if objtimek.cnt=50{
+					resetmove cnt,270,5
+				}
+					
+			}else{
+
+				nohit cnt
+				
+				if dis.cnt=1{
+					target=cnt
+					gosub *put_item
+					target=0
+					dis.cnt=2
+				}
+				objtimek.cnt+=1
+				
+				if objtimek.cnt>=5:objtimek.cnt=0:objtimek2.cnt+=1
+				objtimek3.cnt=objtimek2.cnt*32
+				gmode 2,32,32
+				gcopy 4,objtimek3.cnt,31,31,31
+				if objtimek2.cnt>9{
+					objtimek.cnt=0:objtimek2.cnt=0:objtimek3.cnt=0
+					ts.cnt=0:dis.cnt=0:tf.cnt=0
+					
+				}
+				
+			}
+				
+			swbreak
+	case 33
+			if dis.cnt=0{
+				objtimek.cnt+=1
+				gmode 2,32,32
+				gcopy 4,0,31,31,31
+				if objtimek.cnt<=150&objtimek.cnt>=50{
+					if objtimek.cnt<=50+10*3&objtimek.cnt>=50{
+						target=cnt:spd=5:type=2
+						if objtimek.cnt\3=1:gosub *gyakuuzudanmak
+						target=0:spd=0:type=0
+					}
+				}
+				if objtimek.cnt=50{
+					resetmove cnt,270,5
+				}
+					
+			}else{
+
+				nohit cnt
+				
+				if dis.cnt=1{
+					target=cnt
+					gosub *put_item
+					target=0
+					dis.cnt=2
+				}
+				objtimek.cnt+=1
+				
+				if objtimek.cnt>=5:objtimek.cnt=0:objtimek2.cnt+=1
+				objtimek3.cnt=objtimek2.cnt*32
+				gmode 2,32,32
+				gcopy 4,objtimek3.cnt,31,31,31
+				if objtimek2.cnt>9{
+					objtimek.cnt=0:objtimek2.cnt=0:objtimek3.cnt=0
+					ts.cnt=0:dis.cnt=0:tf.cnt=0
+					
+				}
+				
+			}
+				
+			swbreak
+//----------------------------縁談幕プロペラ君
+	case 34
+			if dis.cnt=0{
+				objtimek.cnt+=1
+				gmode 2,32,32
+				gcopy 4,0,31,31,31
+				if objtimek.cnt<=150&objtimek.cnt>=50{
+					if objtimek.cnt<=50+10*5&objtimek.cnt>=50{
+						target=cnt:spd=5:type=0
+						if objtimek.cnt\5=1:gosub *neraiendanmak
+						target=0:spd=0:type=0
+					}
+				}
+				if objtimek.cnt=50{
+					resetmove cnt,270,5
+				}
+					
+			}else{
+
+				nohit cnt
+				
+				if dis.cnt=1{
+					target=cnt
+					gosub *put_item
+					target=0
+					dis.cnt=2
+				}
+				objtimek.cnt+=1
+				
+				if objtimek.cnt>=5:objtimek.cnt=0:objtimek2.cnt+=1
+				objtimek3.cnt=objtimek2.cnt*32
+				gmode 2,32,32
+				gcopy 4,objtimek3.cnt,31,31,31
+				if objtimek2.cnt>9{
+					objtimek.cnt=0:objtimek2.cnt=0:objtimek3.cnt=0
+					ts.cnt=0:dis.cnt=0:tf.cnt=0
+					
+				}
+				
+			}
+				
+			swbreak
+//----------------------------敵１3の処理
+
+		case 36
+			if dis.cnt=0{
+				objtimek.cnt+=1
+				gmode 2,32,32
+				gcopy 4,0,0,32,32
+				if objtimek.cnt>=50{
+					txv.cnt=0 : tyv.cnt=0
+				}
+				if objtimek.cnt<=300&objtimek.cnt>=100{
+					if objtimek.cnt<=100+1&objtimek.cnt>=100{
+						target=cnt:mukaukakudo=90
+						gosub *laser_ramon1
+						target=0:mukaukakudo=0
+						
+					}
+				}
+				if objtimek.cnt>=300{
+					resetmove cnt,270,3
+				}
+			}else{
+				
+				nohit cnt
+				
+				if dis.cnt=1{
+					target=cnt
+					gosub *put_item
+					target=0
+					dis.cnt=2
+				}
+				objtimek.cnt+=1
+				
+				if objtimek.cnt>=5:objtimek.cnt=0:objtimek2.cnt+=1
+				objtimek3.cnt=objtimek2.cnt*32
+				gmode 2,32,32
+				gcopy 4,objtimek3.cnt,0,32,32
+				if objtimek2.cnt>9{
+					objtimek.cnt=0:objtimek2.cnt=0:objtimek3.cnt=0
+					ts.cnt=0:dis.cnt=0:tf.cnt=0
+					txv.cnt=0 : tyv.cnt=0
+				}				
+			}				
+	swbreak
+	
+//----------------------------プロペラ君２号の処理
+
+		case 38
+			if dis.cnt=0{
+				objtimek.cnt+=1
+				gmode 2,32,32
+				gcopy 4,0,31,31,31
+				if objtimek.cnt<=330&objtimek.cnt>=50{
+					if objtimek.cnt<=50+40*7&objtimek.cnt>=50{
+						target=cnt:type=2:spd=5
+						if objtimek.cnt\7=1:gosub *uzudanmak
+						target=0:type=0:spd=0
+					}
+				}
+				if objtimek.cnt=50{
+					txv.cnt=0:tyv.cnt=0
+				}
+				if objtimek.cnt>=330{
+					resetmove cnt,270,3
+				}
+					
+			}else{
+
+				nohit cnt
+				
+				if dis.cnt=1{
+					target=cnt
+					gosub *put_item
+					target=0
+					dis.cnt=2
+				}
+				objtimek.cnt+=1
+				
+				if objtimek.cnt>=5:objtimek.cnt=0:objtimek2.cnt+=1
+				objtimek3.cnt=objtimek2.cnt*32
+				gmode 2,32,32
+				gcopy 4,objtimek3.cnt,31,31,31
+				if objtimek2.cnt>9{
+					objtimek.cnt=0:objtimek2.cnt=0:objtimek3.cnt=0
+					ts.cnt=0:dis.cnt=0:tf.cnt=0
+					
+				}
+				
+			}
+				
+			swbreak
+//---------------------------レーザー機の処理
+
+		case 40
+				
+			if dis.cnt=0{
+				objtimek.cnt+=1
+				gmode 2,64,64
+				gcopy 7,0,0,64,64
+								
+				if objtimek.cnt=40:txv.cnt=0:tyv.cnt=0
+				if objtimek.cnt=800:objtimek.cnt=40
+
+				if (objtimek.cnt>=100) & (objtimek.cnt<=180){
+					if objtimek.cnt\20=0{
+						getsankaktcy cnt
+						target=cnt:mukaukakudo=b:spd=2
+							gosub *laser_ramon2
+						target=0:mukaukakudo=0:spd=0
+					}
+				}
+				
+				}else{
+					if zhp.cnt>0:break
+					objtimek.cnt+=1
+					//当たり判定の範囲
+					hitchklenghx.cnt=-1000
+					hitchklenghy.cnt=-1000
+				
+					//中心座標用加算変数
+					tcplusx.cnt=-1000
+					tcplusy.cnt=-1000
+	
+					if objtimek.cnt>=5:objtimek.cnt=0:objtimek2.cnt+=1
+					objtimek3.cnt=objtimek2.cnt*64
+					gmode 2,64,64
+					gcopy 7,objtimek3.cnt,0,64,64
+					if objtimek2.cnt>9{
+						objtimek.cnt=0:objtimek2.cnt=0:objtimek3.cnt=0
+						ts.cnt=0:dis.cnt=0:tf.cnt=0
+						//当たり判定の範囲
+						hitchklenghx.cnt=20
+						hitchklenghy.cnt=20
+					
+						//中心座標用加算変数
+						tcplusx.cnt=0
+						tcplusy.cnt=9
+						
+					}
+				}
+				swbreak
+//----------------------------中ボス１の処理
+
+		case 6
+				
+			if dis.cnt=0{
+				objtimek.cnt+=1
+				gmode 2,64,64
+				gcopy 7,0,0,64,64
+								
+				if objtimek.cnt<=150&objtimek.cnt>=50{
+					if objtimek.cnt<=50+2*30&objtimek.cnt>=50{
+						eh2.cnt=180
+						txv.cnt=cosa(eh2.cnt)/5 : tyv.cnt=sina(eh2.cnt)/5
+						target=cnt
+						if objtimek.cnt\30=1:gosub *endanmak
+						target=0
+					}
+				}
+				if objtimek.cnt<=650&objtimek.cnt>=150{
+					if objtimek.cnt<=150+20*25&objtimek.cnt>=150{
+						eh2.cnt=0
+						txv.cnt=0 : tyv.cnt=0
+						target=cnt
+						if objtimek.cnt\25=1:gosub *danmak2
+						target=0
+					}
+				}
+				if objtimek.cnt<=700&objtimek.cnt>=650{
+					if objtimek.cnt<=650+20*25&objtimek.cnt>=650{
+						eh2.cnt=0
+						txv.cnt=cosa(eh2.cnt)/5 : tyv.cnt=sina(eh2.cnt)/5
+						target=cnt
+						if objtimek.cnt\25=1:gosub *danmak2
+						target=0
+						target=cnt
+						if objtimek.cnt\30=1:gosub *endanmak
+						target=0
+					}
+				}
+				if objtimek.cnt>=700:objtimek.cnt=0	
+				}else{
+					if chp>0:break
+					objtimek.cnt+=1
+					//当たり判定の範囲
+					hitchklenghx.cnt=-1000
+					hitchklenghy.cnt=-1000
+				
+					//中心座標用加算変数
+					tcplusx.cnt=-1000
+					tcplusy.cnt=-1000
+	
+					if objtimek.cnt>=5:objtimek.cnt=0:objtimek2.cnt+=1
+					objtimek3.cnt=objtimek2.cnt*64
+					gmode 2,64,64
+					gcopy 7,objtimek3.cnt,0,64,64
+					if objtimek2.cnt>9{
+						objtimek.cnt=0:objtimek2.cnt=0:objtimek3.cnt=0
+						ts.cnt=0:dis.cnt=0:tf.cnt=0
+						//当たり判定の範囲
+						hitchklenghx.cnt=20
+						hitchklenghy.cnt=20
+					
+						//中心座標用加算変数
+						tcplusx.cnt=0
+						tcplusy.cnt=9
+						gook=1
+					}
+				}
+				swbreak
+//----------------------------中ボス2の処理
+
+		case 18
+				
+			if dis.cnt=0{
+				objtimek.cnt+=1
+				gmode 2,64,64
+				gcopy 5,37,29,26,33
+
+				if objtimek.cnt<=100&objtimek.cnt>=50{
+					eh2.cnt=180:
+					txv.cnt=cosa(eh2.cnt)/3 : tyv.cnt=sina(eh2.cnt)/3
+				}
+				if objtimek.cnt<=200&objtimek.cnt>=100{
+					txv.cnt=0:tyv.cnt=0
+					if objtimek.cnt<=100+1*10&objtimek.cnt>=100{
+						target=cnt:spd=1:type=1			;スピード設定わすれずに
+						if objtimek.cnt\10=0:gosub *uzudanmak2
+						target=0:spd=0:type=0
+					}
+				}
+				if objtimek.cnt<=150&objtimek.cnt>=110{
+					eh2.cnt=20
+					txv.cnt=cosa(eh2.cnt)/2 : tyv.cnt=sina(eh2.cnt)/2
+				}
+				if objtimek.cnt<=250&objtimek.cnt>=150{
+					txv.cnt=0:tyv.cnt=0
+					if objtimek.cnt<=250+1*10&objtimek.cnt>=150{
+						target=cnt:spd=1:type=0			;スピード設定わすれずに
+						if objtimek.cnt\10=0:gosub *uzudanmak2
+						target=0:spd=0:type=0
+					}
+				}
+				if objtimek.cnt<=290&objtimek.cnt>=250{
+					eh2.cnt=230
+					txv.cnt=cosa(eh2.cnt)/2 : tyv.cnt=sina(eh2.cnt)/2
+				}
+				if objtimek.cnt<=300&objtimek.cnt>=290{
+					txv.cnt=0:tyv.cnt=0
+					
+				}
+				if objtimek.cnt<=330&objtimek.cnt>=300{
+					eh2.cnt=0
+					txv.cnt=cosa(eh2.cnt)/2 : tyv.cnt=sina(eh2.cnt)/2
+					if objtimek.cnt<=300+15*2&objtimek.cnt>=300{
+						target=cnt	
+						if objtimek.cnt\2=0:gosub *houtyou
+						target=0
+					}
+				}
+				if objtimek.cnt<=380&objtimek.cnt>=330{
+					eh2.cnt=180
+					txv.cnt=cosa(eh2.cnt)/2 : tyv.cnt=sina(eh2.cnt)/2
+					if objtimek.cnt<=330+15*10&objtimek.cnt>=330{
+						target=cnt	
+						if objtimek.cnt\10=0:gosub *houtyou
+						target=0
+					}
+				}
+				if objtimek.cnt<=400&objtimek.cnt>=380{
+					txv.cnt=0:tyv.cnt=0
+					if objtimek.cnt<=380+1*10&objtimek.cnt>=380{
+						target=cnt:spd=1:type=0			;スピード設定わすれずに
+						if objtimek.cnt\10=0:gosub *uzudanmak2
+						target=0:spd=0:type=0
+					}
+				}
+				if objtimek.cnt<=425&objtimek.cnt>=400{
+					eh2.cnt=0
+					txv.cnt=cosa(eh2.cnt)/2 : tyv.cnt=sina(eh2.cnt)/2
+				}
+				if objtimek.cnt<=525&objtimek.cnt>=425{
+					txv.cnt=0:tyv.cnt=0
+					if objtimek.cnt<=425+10*10&objtimek.cnt>=425{
+						target=cnt:spd=3:type=0			;スピード設定わすれずに
+						if objtimek.cnt\10=0:gosub *uzudanmak
+						target=0:spd=0:type=0
+						target=cnt:spd=5:type=3			;スピード設定わすれずに
+						if objtimek.cnt\5=0:gosub *uzudanmak
+						target=0:spd=0:type=0
+					}
+				}
+				if objtimek.cnt<=725&objtimek.cnt>=525{
+					txv.cnt=0:tyv.cnt=0
+					if objtimek.cnt<=525+10*10&objtimek.cnt>=525{
+						target=cnt:spd=5:type=0			;スピード設定わすれずに
+						if objtimek.cnt\10=0:gosub *uzudanmak
+						target=0:spd=0:type=0
+						target=cnt:spd=5:type=2			;スピード設定わすれずに
+						if objtimek.cnt\7=0:gosub *uzudanmak
+						target=0:spd=0:type=0
+						target=cnt:spd=5:type=0			;スピード設定わすれずに
+						if objtimek.cnt\20=0:gosub *endanmak
+						target=0:spd=0:type=0
+					}
+				}
+				if objtimek.cnt<810&objtimek.cnt>=800{
+					eh2.cnt=90
+					txv.cnt=cosa(eh2.cnt)/2 : tyv.cnt=sina(eh2.cnt)/2
+				}
+				if objtimek.cnt<=820&objtimek.cnt>=810{
+					txv.cnt=0:tyv.cnt=0
+					if objtimek.cnt<=810+3*2&objtimek.cnt>=810{
+						target=cnt:spd=5:type=0			;スピード設定わすれずに
+						if objtimek.cnt\2=0:gosub *laser
+						target=0:spd=0:type=0
+						
+					}
+				}
+				if objtimek.cnt<=880&objtimek.cnt>=870{
+					txv.cnt=0:tyv.cnt=0
+					if objtimek.cnt<=870+3*2&objtimek.cnt>=870{
+						target=cnt:spd=5:type=0			;スピード設定わすれずに
+						if objtimek.cnt\2=0:gosub *laser
+						target=0:spd=0:type=0
+						
+					}
+				}
+				
+				if objtimek.cnt<=920&objtimek.cnt>=910{
+					txv.cnt=0:tyv.cnt=0
+					if objtimek.cnt<=920+1*2&objtimek.cnt>=910{
+						target=cnt:spd=5:type=0			;スピード設定わすれずに
+						if objtimek.cnt\2=0:gosub *laser
+						target=0:spd=0:type=0
+						
+					}
+				}
+				if objtimek.cnt<=940&objtimek.cnt>=930{
+					txv.cnt=0:tyv.cnt=0
+					if objtimek.cnt<=940+1*2&objtimek.cnt>=930{
+						target=cnt:spd=5:type=0			;スピード設定わすれずに
+						if objtimek.cnt\2=0:gosub *laser
+						target=0:spd=0:type=0
+						
+					}
+				}
+				if objtimek.cnt<=960&objtimek.cnt>=950{
+					txv.cnt=0:tyv.cnt=0
+					if objtimek.cnt<=960+1*2&objtimek.cnt>=950{
+						target=cnt:spd=5:type=0			;スピード設定わすれずに
+						if objtimek.cnt\2=0:gosub *laser
+						target=0:spd=0:type=0
+						
+					}
+				}
+				if objtimek.cnt<=970&objtimek.cnt>=960{
+					txv.cnt=0:tyv.cnt=0
+					if objtimek.cnt<=970+1*2&objtimek.cnt>=960{
+						target=cnt:spd=5:type=0			;スピード設定わすれずに
+						if objtimek.cnt\2=0:gosub *laser
+						target=0:spd=0:type=0
+						
+					}
+				}
+				if objtimek.cnt<=975&objtimek.cnt>=970{
+					eh2.cnt=25
+					txv.cnt=cosa(eh2.cnt)/7 : tyv.cnt=sina(eh2.cnt)/5
+				}
+				if objtimek.cnt>975:objtimek.cnt=0
+				
+				
+				}else{
+					if chp>0:break
+					if objtimek.cnt=1{
+						eh2.cnt=270
+						txv.cnt=cosa(eh2.cnt)/10 : tyv.cnt=sina(eh2.cnt)/10
+					}
+					if dis.cnt=1{
+						target=cnt
+						gosub *put_item2
+						target=0
+						gook=1
+						dis.cnt=2
+					}
+					gmode 2,64,64
+					gcopy 5,37,29,26,33
+					objtimek.cnt+=1
+					//当たり判定の範囲
+					hitchklenghx.cnt=-1000
+					hitchklenghy.cnt=-1000
+				
+					//中心座標用加算変数
+					tcplusx.cnt=-1000
+					tcplusy.cnt=-1000
+					disBullet(10)
+					
+
+
+				if objtimek.cnt>=5:objtimek.cnt=0:objtimek2.cnt+=1
+					objtimek3.cnt=(objtimek2.cnt+1)*64
+					gmode 2,64,64
+					gcopy 7,objtimek3.cnt,0,64,64
+					pos tx2.cnt-4,ty2.cnt-4:gcopy 7,objtimek3.cnt,0,64,64
+					pos tx2.cnt-20,ty2.cnt-4:gcopy 7,objtimek3.cnt,0,64,64
+					pos tx2.cnt+30,ty2.cnt-40:gcopy 7,objtimek3.cnt,0,64,64
+					pos tx2.cnt-10,ty2.cnt+20:gcopy 7,objtimek3.cnt,0,64,64
+					if objtimek2.cnt>9{
+						objtimek.cnt=2:objtimek2.cnt=0:objtimek3.cnt=0
+						
+						gosub *disall
+						
+					}
+					
+					
+				}
+				swbreak
+//----------------------------中ボス３の処理
+
+		case 39
+				
+			if dis.cnt=0{
+				objtimek.cnt+=1
+				gmode 2,64,64
+				gcopy 5,37,29,26,33
+
+				if objtimek.cnt<=21&objtimek.cnt>=20{
+					resetmove cnt,180,2
+				}
+				if objtimek.cnt<=41&objtimek.cnt>=40{
+					resetmove cnt,0,2
+				}
+				if objtimek.cnt<=101&objtimek.cnt>=100{
+					resetmove cnt,180,2
+				}
+				if objtimek.cnt<=171&objtimek.cnt>=170{
+					resetmove cnt,0,2
+				}
+				if objtimek.cnt<=201&objtimek.cnt>=200{
+					txv.cnt=0:tyv.cnt=0
+				}
+				if objtimek.cnt<=401&objtimek.cnt>=400{
+					resetmove cnt,0,2
+				}
+				if objtimek.cnt<=421&objtimek.cnt>=420{
+					txv.cnt=0:tyv.cnt=0
+				}
+				if objtimek.cnt<=701&objtimek.cnt>=700{
+					resetmove cnt,180,2
+				}
+				if objtimek.cnt<=721&objtimek.cnt>=720{
+					txv.cnt=0:tyv.cnt=0
+				}
+				if objtimek.cnt>=20&objtimek.cnt<=200{
+					if objtimek.cnt<=20+100*5&objtimek.cnt>=20{
+						target=cnt	
+						if objtimek.cnt\5=0:gosub *houtyou
+						target=0
+						target=cnt:spd=5:type=0			;スピード設定わすれずに
+						if objtimek.cnt\20=0:gosub *endanmak
+						target=0:spd=0:type=0
+					}
+				}
+				if objtimek.cnt>=200&objtimek.cnt<=400{
+					if objtimek.cnt<=200+20*5&objtimek.cnt>=200{
+						target=cnt	
+						if objtimek.cnt\5=0:gosub *houtyou2
+						target=0
+						target=cnt:spd=5:type=0			;スピード設定わすれずに
+						if objtimek.cnt\20=0:gosub *endanmak
+						target=0:spd=0:type=0
+					}
+				}
+				if objtimek.cnt>=420&objtimek.cnt<=620{
+					if objtimek.cnt<=420+20*5&objtimek.cnt>=420{
+						target=cnt	
+						if objtimek.cnt\5=0:gosub *houtyou2
+						target=0
+						target=cnt:spd=5:type=0			;スピード設定わすれずに
+						if objtimek.cnt\20=0:gosub *endanmak
+						target=0:spd=0:type=0
+					}
+				}
+				if objtimek.cnt>=620&objtimek.cnt<=820{
+					if objtimek.cnt<=620+2*10&objtimek.cnt>=620{
+						target=cnt	
+						if objtimek.cnt\10=0:gosub *houtyou3
+						target=0
+					}
+				}
+				if objtimek.cnt>=720&objtimek.cnt<=820{
+					if objtimek.cnt<=720+40*10&objtimek.cnt>=720{
+						target=cnt	
+						if objtimek.cnt\20=0:gosub *houtyou3
+						target=0
+						target=cnt:spd=5:type=0			;スピード設定わすれずに
+						if objtimek.cnt\10=0:gosub *uzudanmak
+						target=0:spd=0:type=0
+						target=cnt:spd=5:type=2			;スピード設定わすれずに
+						if objtimek.cnt\7=0:gosub *uzudanmak
+						target=0:spd=0:type=0
+						target=cnt:spd=5:type=0			;スピード設定わすれずに
+						if objtimek.cnt\20=0:gosub *endanmak
+						target=0:spd=0:type=0
+					}
+				}
+				if objtimek.cnt>=820&objtimek.cnt<=920{
+					if objtimek.cnt<=820+40*10&objtimek.cnt>=820{
+						target=cnt	
+						if objtimek.cnt\10=0:gosub *houtyou3
+						target=0
+						target=cnt:spd=5:type=0			;スピード設定わすれずに
+						if objtimek.cnt\10=0:gosub *uzudanmak
+						target=0:spd=0:type=0
+						target=cnt:spd=5:type=2			;スピード設定わすれずに
+						if objtimek.cnt\7=0:gosub *uzudanmak
+						target=0:spd=0:type=0
+						target=cnt:spd=5:type=0			;スピード設定わすれずに
+						if objtimek.cnt\20=0:gosub *endanmak
+						target=0:spd=0:type=0
+					}
+				}
+				if objtimek.cnt>=1000:objtimek.cnt=0
+				
+				}else{
+					if chp>0:break
+					if objtimek.cnt=1{
+						eh2.cnt=270
+						txv.cnt=cosa(eh2.cnt)/10 : tyv.cnt=sina(eh2.cnt)/10
+					}
+					if dis.cnt=1{
+						target=cnt
+						gosub *put_item2
+						target=0
+						gook=1
+						dis.cnt=2
+					}
+					gmode 2,64,64
+					gcopy 5,37,29,26,33
+					objtimek.cnt+=1
+					//当たり判定の範囲
+					hitchklenghx.cnt=-1000
+					hitchklenghy.cnt=-1000
+				
+					//中心座標用加算変数
+					tcplusx.cnt=-1000
+					tcplusy.cnt=-1000
+					disBullet(10)
+					
+
+
+				if objtimek.cnt>=5:objtimek.cnt=0:objtimek2.cnt+=1
+					objtimek3.cnt=(objtimek2.cnt+1)*64
+					gmode 2,64,64
+					gcopy 7,objtimek3.cnt,0,64,64
+					pos tx2.cnt-4,ty2.cnt-4:gcopy 7,objtimek3.cnt,0,64,64
+					pos tx2.cnt-20,ty2.cnt-4:gcopy 7,objtimek3.cnt,0,64,64
+					pos tx2.cnt+30,ty2.cnt-40:gcopy 7,objtimek3.cnt,0,64,64
+					pos tx2.cnt-10,ty2.cnt+20:gcopy 7,objtimek3.cnt,0,64,64
+					if objtimek2.cnt>9{
+						objtimek.cnt=2:objtimek2.cnt=0:objtimek3.cnt=0
+						
+						gosub *disall
+						
+					}
+					
+					
+				}
+				swbreak
+		
+				
+//----------------------------大ボス１
+	case 12
+		if dis.cnt=0{
+			objtimek.cnt+=1
+			gmode 2
+			gcopy 9,0,0,128,64
+
+			;if objtimek.cnt<250{
+			if newbosbgm=0{
+				if stage!3{
+					mci "status bosBgm mode"
+					if (refstr="stopped"){
+						mci "close bosBgm":mci "open data/music/boss01b.mid alias bosBgm"
+						mci "play bosBgm"
+						newbosbgm=1
+						objtimek.cnt=250
+					}
+				}//dmplay 100,3
+			}
+			;}
+			if objtimek.cnt<=850&objtimek.cnt>=100{
+				tx.cnt-=txv.cnt:ty.cnt-=tyv.cnt
+			}
+			if objtimek.cnt<=860&objtimek.cnt>=850{
+				eh2.cnt=180
+				txv.cnt=cosa(eh2.cnt)/2 : tyv.cnt=sina(eh2.cnt)/2
+			}
+			if objtimek.cnt<=1010&objtimek.cnt>=1000{
+				eh2.cnt=0
+				txv.cnt=cosa(eh2.cnt)/2 : tyv.cnt=sina(eh2.cnt)/2
+			}
+			if objtimek.cnt<=1000&objtimek.cnt>=860{
+				tx.cnt-=txv.cnt:ty.cnt-=tyv.cnt
+			}
+			if objtimek.cnt<=300&objtimek.cnt>=250{
+				if objtimek.cnt<=250+4*6&objtimek.cnt>=250{
+						target=cnt
+						if objtimek.cnt\6=0:gosub *endanmak
+						target=0
+					}
+			}
+			if objtimek.cnt<=400&objtimek.cnt>=300{
+				if objtimek.cnt<=400+5*20&objtimek.cnt>=300{
+						target=cnt
+						if objtimek.cnt\20=0:gosub *danmak2
+						target=0
+					}
+			}
+			if objtimek.cnt<=500&objtimek.cnt>=400{
+				if objtimek.cnt<=500+7*10&objtimek.cnt>=400{
+						target=cnt
+						ds_play 10
+						if objtimek.cnt\10=0:gosub *danmak4
+						target=0
+					}
+			}
+			if objtimek.cnt<=750&objtimek.cnt>=550{
+				if objtimek.cnt<=750+20*10&objtimek.cnt>=550{
+						target=cnt:spd=5:type=0			;スピード設定わすれずに
+						if objtimek.cnt\10=0:gosub *uzudanmak
+						target=0:spd=0:type=0
+					}
+			}
+			if objtimek.cnt<=850&objtimek.cnt>=750{
+				if objtimek.cnt<=850+10*10&objtimek.cnt>=750{
+						target=cnt:spd=3:type=1			;スピード設定&タイプ設定わすれずに
+						if objtimek.cnt\10=0:gosub *uzudanmak
+						target=0:spd=0:type=0
+					}
+			}
+			if objtimek.cnt>=1010:objtimek.cnt=250
+		}else{
+			if zhp.cnt>=1:break
+			objtimek.cnt+=1
+					//当たり判定の範囲
+					hitchklenghx.cnt=-1000
+					hitchklenghy.cnt=-1000
+				
+					//中心座標用加算変数
+					tcplusx.cnt=-1000
+					tcplusy.cnt=-1000
+
+					eh2.cnt=90
+					txv.cnt=cosa(eh2.cnt)/5 : tyv.cnt=sina(eh2.cnt)/5
+	
+					if objtimek.cnt>=5:objtimek.cnt=0:objtimek2.cnt+=1
+					objtimek3.cnt=(objtimek2.cnt+1)*64
+					gmode 2,64,64
+					gcopy 7,objtimek3.cnt,0,64,64
+					pos tx2.cnt-4,ty2.cnt-4:gcopy 7,objtimek3.cnt,0,64,64
+					pos tx2.cnt-20,ty2.cnt-4:gcopy 7,objtimek3.cnt,0,64,64
+					pos tx2.cnt+30,ty2.cnt-40:gcopy 7,objtimek3.cnt,0,64,64
+					pos tx2.cnt-10,ty2.cnt+20:gcopy 7,objtimek3.cnt,0,64,64
+					if objtimek2.cnt>9{
+						objtimek.cnt=0:objtimek2.cnt=0:objtimek3.cnt=0
+						ts.cnt=0:dis.cnt=0:tf.cnt=0
+						//当たり判定の範囲
+						hitchklenghx.cnt=20
+						hitchklenghy.cnt=20
+					
+						//中心座標用加算変数
+						tcplusx.cnt=0
+						tcplusy.cnt=9
+						gook=1
+						newbosbgm=0
+					}
+		}
+		swbreak
+
+//----------------------------大ボス2
+	case 25
+		if dis.cnt=0{
+			objtimek.cnt+=1
+			gmode 2
+			if objtimek.cnt<340:gcopy 11,0,0,68,83
+			if objtimek.cnt=1:mmstop:dmplay 0,8
+			if objtimek.cnt=200:txv.cnt=0:tyv.cnt=0//:objtimek.cnt=2100
+			if objtimek.cnt=340:
+			if objtimek.cnt>=340:gcopy 11,0,84,68,78
+
+			if objtimek.cnt<=600&objtimek.cnt>=340{
+				if objtimek.cnt<=340+30*10&objtimek.cnt>=340{
+						target=cnt:spd=3:type=2			;スピード設定わすれずに
+						if objtimek.cnt\10=0:gosub *uzudanmak
+						target=0:spd=0:type=0
+						target=cnt:spd=6:type=3			;スピード設定わすれずに
+						if objtimek.cnt\5=0:gosub *uzudanmak
+						target=0:spd=0:type=0
+					}
+			}
+			if objtimek.cnt<=910&objtimek.cnt>=610{
+				if objtimek.cnt<=610+50*10&objtimek.cnt>=610{
+						target=cnt:spd=3:type=1		;スピード設定わすれずに
+						if objtimek.cnt\10=0:gosub *uzudanmak
+						target=0:spd=0:type=0
+						target=cnt:spd=6:type=0			;スピード設定わすれずに
+						if objtimek.cnt\5=0:gosub *uzudanmak
+						target=0:spd=0:type=0
+						target=cnt:spd=5:type=0			;スピード設定わすれずに
+						if objtimek.cnt\50=0:gosub *neraiendanmak
+						target=0:spd=0:type=0
+					}
+			}
+			if objtimek.cnt<=1210&objtimek.cnt>=910{
+				if objtimek.cnt<=910+50*10&objtimek.cnt>910{
+						target=cnt:spd=3:type=1		;スピード設定わすれずに
+						if objtimek.cnt\10=0:gosub *uzudanmak
+						target=cnt:spd=3:type=1		;スピード設定わすれずに
+						if objtimek.cnt\10=0:gosub *gyakuuzudanmak
+						target=0:spd=0:type=0
+					}
+			}
+			if objtimek.cnt<=1510&objtimek.cnt>=1210{
+				if objtimek.cnt<=1210+50*10&objtimek.cnt>1210{
+						target=cnt:spd=6:type=3			;スピード設定わすれずに
+						if objtimek.cnt\5=0:gosub *uzudanmak
+						target=0:spd=0:type=0
+						target=cnt:spd=6:type=3			;スピード設定わすれずに
+						if objtimek.cnt\5=0:gosub *gyakuuzudanmak
+						target=0:spd=0:type=0
+						
+					}
+			}
+			if objtimek.cnt<=1810&objtimek.cnt>=1510{
+				if objtimek.cnt<=1510+50*10&objtimek.cnt>1510{
+						target=cnt:spd=6:type=5			;スピード設定わすれずに
+						if objtimek.cnt\15=0:gosub *uzudanmak
+						target=0:spd=0:type=0
+						target=cnt:spd=6:type=5			;スピード設定わすれずに
+						if objtimek.cnt\15=0:gosub *gyakuuzudanmak
+						target=0:spd=0:type=0
+						
+					}
+			}
+			if objtimek.cnt<=2110&objtimek.cnt>=1810{
+				if objtimek.cnt<=1810+50*10&objtimek.cnt>1810{
+						target=cnt:spd=6:type=5			;スピード設定わすれずに
+						if objtimek.cnt\10=0:gosub *uzudanmak
+						target=0:spd=0:type=0
+						target=cnt:spd=6:type=5			;スピード設定わすれずに
+						if objtimek.cnt\10=0:gosub *gyakuuzudanmak
+						target=0:spd=0:type=0
+						
+					}
+			}
+			if objtimek.cnt<=2200&objtimek.cnt>=2110{
+				resetmove cnt,300,5
+			}
+			if objtimek.cnt<=2510&objtimek.cnt>=2150{
+				if objtimek.cnt<=2150+20*100&objtimek.cnt>2150{
+						txv.cnt=0:tyv.cnt=0
+						target=cnt:spd=5:type=6			;スピード設定わすれずに
+						if objtimek.cnt\50=0:gosub *endanmak
+						target=0:spd=0:type=0
+						
+						target=cnt:spd=2:type=2			;スピード設定わすれずに
+						if objtimek.cnt\20=0:gosub *put_enemyshot1
+						target=0:spd=0:type=0
+						
+					}
+			}
+			if objtimek.cnt<=2600&objtimek.cnt>=2510{
+				resetmove cnt,180,5
+			}
+			if objtimek.cnt<=2710&objtimek.cnt>=2550{
+				if objtimek.cnt<=2550+30*100&objtimek.cnt>2550{
+						txv.cnt=0:tyv.cnt=0
+						target=cnt:spd=5:type=6			;スピード設定わすれずに
+						if objtimek.cnt\50=0:gosub *endanmak
+						target=0:spd=0:type=0
+						
+					}
+			}
+			if objtimek.cnt<=2800&objtimek.cnt>=2710{
+				resetmove cnt,60,8
+			}
+			if objtimek.cnt>=2800:objtimek.cnt=340:txv.cnt=0:tyv.cnt=0
+			
+		}else{
+			if zhp.cnt>=1:break
+			objtimek.cnt+=1
+					//当たり判定の範囲
+					hitchklenghx.cnt=-1000
+					hitchklenghy.cnt=-1000
+				
+					//中心座標用加算変数
+					tcplusx.cnt=-1000
+					tcplusy.cnt=-1000
+
+					eh2.cnt=90
+					txv.cnt=cosa(eh2.cnt)/5 : tyv.cnt=sina(eh2.cnt)/5
+	
+					if objtimek.cnt>=5:objtimek.cnt=0:objtimek2.cnt+=1
+					objtimek3.cnt=(objtimek2.cnt+1)*64
+					gmode 2,64,64
+					gcopy 7,objtimek3.cnt,0,64,64
+					pos tx2.cnt-4,ty2.cnt-4:gcopy 7,objtimek3.cnt,0,64,64
+					pos tx2.cnt-20,ty2.cnt-4:gcopy 7,objtimek3.cnt,0,64,64
+					pos tx2.cnt+30,ty2.cnt-40:gcopy 7,objtimek3.cnt,0,64,64
+					pos tx2.cnt-10,ty2.cnt+20:gcopy 7,objtimek3.cnt,0,64,64
+					if objtimek2.cnt>9{
+						objtimek.cnt=0:objtimek2.cnt=0:objtimek3.cnt=0
+						ts.cnt=0:dis.cnt=0:tf.cnt=0
+						//当たり判定の範囲
+						hitchklenghx.cnt=20
+						hitchklenghy.cnt=20
+					
+						//中心座標用加算変数
+						tcplusx.cnt=0
+						tcplusy.cnt=9
+						mmstop
+						dmstop
+						mmplay 13
+						gook=1
+						disBullet(10)
+						
+					}
+		}
+		swbreak
+
+//----------------------------ファンネル
+	case 14
+		if dis.cnt=0{
+			objtimek.cnt+=1
+			//----------------------------自機のいる角度を計算
+				//敵の座標からの距離を計測
+				kyorx=tx2.cnt-mx
+				kyory=ty2.cnt-my
+				//座標から自分のいる座標の角度を計算
+				a=atan(kyory,kyorx)
+			//----------------------------ここまで
+			gmode 2,12,9
+			grotate 9,0,20,a,24,18
+			gook=0
+			if objtimek.cnt>=40{
+				target=cnt
+				if objtimek.cnt\30=0:gosub *danmak4
+				target=0
+				
+			}
+			
+			if objtimek.cnt<=200&objtimek.cnt>=10+(abs(a)*20){
+				eh2.cnt+=5:if eh2.cnt>=360:eh2.cnt=0
+				txv.cnt=cosa(eh2.cnt)/4 : tyv.cnt=sina(eh2.cnt)/4
+			}
+		
+			if objtimek.cnt>=200{
+				objtimek.cnt=0
+			}
+		}else{
+			//当たり判定の範囲
+				hitchklenghx.cnt=-1000
+				hitchklenghy.cnt=-1000
+			
+				//中心座標用加算変数
+				tcplusx.cnt=-1000
+				tcplusy.cnt=-1000
+				objtimek.cnt+=1
+
+				if dis.cnt=1{
+					fantao+=1
+					dis.cnt=2
+				}
+				
+				if objtimek.cnt>=5:objtimek.cnt=0:objtimek2.cnt+=1
+				objtimek3.cnt=objtimek2.cnt*32
+				gmode 2,32,32
+				gcopy 4,objtimek3.cnt,0,32,32
+				if objtimek2.cnt>9{
+					objtimek.cnt=0:objtimek2.cnt=0:objtimek3.cnt=0
+					ts.cnt=0:dis.cnt=0:tf.cnt=0
+					txv.cnt=0 : tyv.cnt=0
+					
+				}
+			}
+		swbreak
+//************************************************************************************ラスボス
+		case 50
+			
+
+			color 0,0,0
+			gmode 2,48,80
+			gcopy 15,0,0,48,80
+			gmode 2,,
+
+			if cannon!5&cannon!6{
+				objtimek.cnt+=1
+				if (objtimek.cnt = 50) : txv.cnt = 0 : tyv.cnt = 0
+				if (objtimek.cnt = 100) : turn += 1
+				if cannon = 1 : target = cnt : mukaukakudo = 90 : gosub *c_cannon : cannon = 2 
+			}
+			if cannon >= 5 {
+			if dis.cnt=0{
+				if cannon=5:objtimek.cnt = 0: cannon=6
+				objtimek.cnt += 1
+				if objtimek.cnt <= 20 {
+					resetmove cnt,200,3
+				}
+				if objtimek.cnt >= 80 & objtimek.cnt <= 160 {
+					resetmove cnt,0,5
+				}
+				if wapon2kaun>=560 & wapon2kaun<=599{
+
+					if wapon2kaun=561:ds_play 8
+					color 255,255,255
+					pos 50,220
+					gmode 2,48,80
+					gcopy 15,0,0,48,20
+					pos 50+50,220
+					font "MS　ゴシック",30
+					;mes "モレールジャマー"
+					gmode 2,280,55
+					gcopy 21,0,0,280,55
+					
+					
+	
+				}
+				
+				if objtimek.cnt = 720	:resetmove cnt,90,1
+				if objtimek.cnt = 740	:txv.cnt=0:tyv.cnt=0
+				if objtimek.cnt = 750	:resetmove cnt,200,1:target=cnt:gosub *laser:target=0
+				if objtimek.cnt = 760	:resetmove cnt,340,1:target=cnt:gosub *laser:target=0
+				if objtimek.cnt = 780	:resetmove cnt,200,1:target=cnt:gosub *laser:target=0
+				if objtimek.cnt = 800	:resetmove cnt,340,1:target=cnt:gosub *laser:target=0
+				if objtimek.cnt = 810	:txv.cnt=0:tyv.cnt=0
+				if objtimek.cnt = 820	:resetmove cnt,90,1
+				if objtimek.cnt = 840	:txv.cnt=0:tyv.cnt=0
+				if objtimek.cnt = 850	:resetmove cnt,200,1:target=cnt:gosub *laser:gosub *endanmak:target=0
+				if objtimek.cnt = 860	:resetmove cnt,340,1:target=cnt:gosub *laser://gosub *endanmak:target=0
+				if objtimek.cnt = 880	:resetmove cnt,200,1:target=cnt:gosub *laser:gosub *endanmak:target=0
+				if objtimek.cnt = 900	:resetmove cnt,340,1:target=cnt:gosub *laser://gosub *endanmak:target=0
+				if objtimek.cnt = 910	:txv.cnt=0:tyv.cnt=0
+				if objtimek.cnt = 920	:resetmove cnt,90,1
+				if objtimek.cnt = 940	:txv.cnt=0:tyv.cnt=0
+				if objtimek.cnt = 950	:resetmove cnt,200,1:target=cnt:gosub *laser:gosub *neraiendanmak:target=0
+				if objtimek.cnt = 960	:resetmove cnt,340,1:target=cnt:gosub *laser://gosub *neraiendanmak:target=0
+				if objtimek.cnt = 980	:resetmove cnt,200,1:target=cnt:gosub *laser:gosub *neraiendanmak:target=0
+				if objtimek.cnt = 1000	:resetmove cnt,340,1:target=cnt:gosub *laser://gosub *neraiendanmak:target=0
+				if objtimek.cnt = 1010	:txv.cnt=0:tyv.cnt=0
+				if objtimek.cnt = 2100	:resetmove cnt,90,2:target=cnt:gosub *laser://gosub *neraiendanmak:target=0
+				if objtimek.cnt = 2115	:txv.cnt=0:tyv.cnt=0
+				
+				
+				IF objtimek.cnt = 21 	:txv.cnt=0:tyv.cnt=0:dmplay 0,11
+				if objtimek.cnt = 160 	:txv.cnt=0:tyv.cnt=0
+				if objtimek.cnt = 370 	:stage=6:dmplay 0,13
+				if objtimek.cnt = 400	:txv.cnt=0:tyv.cnt=0
+				if objtimek.cnt = 1100	:dmplay 0,11
+				
+				
+				if objtimek.cnt >= 20 & objtimek.cnt <= 370{
+					target=cnt:type=2:spd=2
+					if objtimek.cnt\25=0:gosub *uzudanmak
+					target=0:type=0:spd=0
+					
+					target=cnt:spd=3:type=1		;スピード設定わすれずに
+					if frame\10=0:gosub *uzudanmak
+					
+					target=cnt:spd=3:type=1		;スピード設定わすれずに
+					if frame\10=0:gosub *gyakuuzudanmak
+					target=0:spd=0:type=0
+					
+				}
+				if objtimek.cnt >= 2000 & objtimek.cnt <= 2370{
+					target=cnt:type=2:spd=2
+					if objtimek.cnt\25=0:gosub *uzudanmak
+					target=0:type=0:spd=0
+					
+					target=cnt:spd=3:type=1		;スピード設定わすれずに
+					if frame\10=0:gosub *uzudanmak
+					
+					target=cnt:spd=3:type=1		;スピード設定わすれずに
+					if frame\10=0:gosub *gyakuuzudanmak
+					target=0:spd=0:type=0
+					
+				}
+				
+				if objtimek.cnt = 370:resetmove cnt,200,3
+
+				if objtimek.cnt >= 370 & objtimek.cnt <= 600{
+					target=cnt:type=2:spd=2
+					if objtimek.cnt\25=0:gosub *uzudanmak
+					target=0:type=0:spd=0
+					
+					target=cnt:spd=3:type=1		;スピード設定わすれずに
+					if frame\10=0:gosub *uzudanmak
+					
+					target=cnt:spd=3:type=1		;スピード設定わすれずに
+					if frame\10=0:gosub *gyakuuzudanmak
+					target=0:spd=0:type=0
+					if objtimek.cnt<=370+30*100&objtimek.cnt>370{
+						target=cnt:spd=2:type=0
+						if objtimek.cnt\25=0:gosub *laser
+						target=0:spd=0:type=0
+					}
+
+				}
+				if objtimek.cnt >= 1100 & objtimek.cnt <= 1150{
+					target=cnt:type=6:spd=1
+					if objtimek.cnt\10=0:gosub *uzudanmak
+					target=0:type=0:spd=0
+				}
+				if objtimek.cnt >= 1150 & objtimek.cnt <= 1200{
+					target=cnt:type=6:spd=1
+					if objtimek.cnt\10=0:gosub *gyakuuzudanmak
+					target=0:type=0:spd=0
+				}
+				if objtimek.cnt >= 1200 & objtimek.cnt <= 1300{
+					target=cnt:type=6:spd=4
+					if objtimek.cnt\5=0:gosub *uzudanmak
+					target=0:type=0:spd=0
+				}
+				if objtimek.cnt >= 1300 & objtimek.cnt <= 1350{
+					target=cnt:type=6:spd=4
+					if objtimek.cnt\5=0:gosub *gyakuuzudanmak
+					target=0:type=0:spd=0
+				}
+				if objtimek.cnt >= 1450 & objtimek.cnt <= 1480{
+					target=cnt:type=5:spd=2
+					if objtimek.cnt\2=0:gosub *uzudanmak
+					target=0:type=0:spd=0
+				}
+				if objtimek.cnt >= 1500 & objtimek.cnt <= 1520{
+					target=cnt:type=5:spd=2
+					if objtimek.cnt\2=0:gosub *gyakuuzudanmak
+					target=0:type=0:spd=0
+				}
+				if objtimek.cnt >= 1540 & objtimek.cnt <= 1570{
+					target=cnt:type=5:spd=2
+					if objtimek.cnt\2=0:gosub *uzudanmak
+					target=0:type=0:spd=0
+				}
+				if objtimek.cnt >= 1590 & objtimek.cnt <= 1610{
+					target=cnt:type=5:spd=2
+					if objtimek.cnt\2=0:gosub *gyakuuzudanmak
+					target=0:type=0:spd=0
+				}
+				if objtimek.cnt >= 1620 & objtimek.cnt <= 1650{
+					target=cnt:type=5:spd=4
+					if objtimek.cnt\2=0:gosub *uzudanmak
+					target=0:type=0:spd=0
+				}
+				if objtimek.cnt >= 1660 & objtimek.cnt <= 1700{
+					target=cnt:type=5:spd=4
+					if objtimek.cnt\2=0:gosub *gyakuuzudanmak
+					target=0:type=0:spd=0
+				}
+				if objtimek.cnt >= 1780 & objtimek.cnt <= 1800{
+					target=cnt:type=5:spd=2
+					if objtimek.cnt\2=0:gosub *uzudanmak
+					target=0:type=0:spd=0
+				}
+				if objtimek.cnt >= 1820 & objtimek.cnt <= 1850{
+					target=cnt:type=5:spd=2
+					if objtimek.cnt\2=0:gosub *gyakuuzudanmak
+					target=0:type=0:spd=0
+				}
+				if objtimek.cnt > 1900 & objtimek.cnt <= 2100|kg=1{
+					//target=cnt:type=6:spd=3
+					//if objtimek.cnt\20=0:gosub *gyakuuzudanmak
+					//target=0:type=0:spd=0
+					
+					if objtimek.cnt=1902|kg=1:efx_f=160:efy_f=160:efx_e=160:efy_e=160:ds_play 13:utot=0
+					if objtimek.cnt=1903:efycount=0:efxcount=0
+					if frame\3=0:efxcount+=1
+					if efxcount=4:efxcount=0:efycount+=1
+					if efycount=8:efycount=7:efxcount=1
+					if efycount=4{
+						
+						if utot=1:break
+						target=cnt:mukaukakudo=90
+						//if mode=0:mode=2
+						gosub *laser_ramon1
+						tmptate=tcx.cnt
+						tcx.cnt-=10
+						gosub *laser_ramon1
+						tcx.cnt-=10
+						gosub *laser_ramon1
+						tcx.cnt+=20
+						gosub *laser_ramon1
+						tcx.cnt+=10
+						gosub *laser_ramon1
+						tcx.cnt+=10
+						gosub *laser_ramon1
+						tcx.cnt=tmptate
+						target=0:mukaukakudo=0
+						utot=1:kg=0:ds_play 14
+					}
+					
+					
+					pos (tx.cnt/1000)-55,(ty.cnt/1000)-30
+					gcopy 16,efx_f*efxcount,efy_f*efycount,efx_e,efy_e
+				}
+					if objtimek.cnt>=2150:objtimek.cnt=0:utot=0:efycount=0:efxcount=0
+					if hissatuf=2:utot=0:wapon2kaun=550
+					if wapon2kaun=599:kg=1:ds_play 10
+					if kg=1:kg2=1
+					if kg2=1:kg2k+=1
+					if kg2k>=300:kg2k=0:kg2=0
+				}else{
+					if zhp>0:break
+					if objtimek.cnt=1{
+						eh2.cnt=270
+						txv.cnt=cosa(eh2.cnt)/10 : tyv.cnt=sina(eh2.cnt)/10
+					}
+					if dis.cnt=1{
+						target=cnt
+						gosub *put_item2
+						target=0
+						gook=1
+						dis.cnt=2
+					}
+					gmode 2,64,64
+					gcopy 5,37,29,26,33
+					objtimek.cnt+=1
+					//当たり判定の範囲
+					hitchklenghx.cnt=-1000
+					hitchklenghy.cnt=-1000
+				
+					//中心座標用加算変数
+					tcplusx.cnt=-1000
+					tcplusy.cnt=-1000
+					disBullet(10)
+					
+
+
+				if objtimek.cnt>=5:objtimek.cnt=0:objtimek2.cnt+=1
+					objtimek3.cnt=(objtimek2.cnt+1)*64
+					gmode 2,64,64
+					gcopy 7,objtimek3.cnt,0,64,64
+					pos tx2.cnt-4,ty2.cnt-4:gcopy 7,objtimek3.cnt,0,64,64
+					pos tx2.cnt-20,ty2.cnt-4:gcopy 7,objtimek3.cnt,0,64,64
+					pos tx2.cnt+30,ty2.cnt-40:gcopy 7,objtimek3.cnt,0,64,64
+					pos tx2.cnt-10,ty2.cnt+20:gcopy 7,objtimek3.cnt,0,64,64
+					if objtimek2.cnt>9{
+						objtimek.cnt=2:objtimek2.cnt=0:objtimek3.cnt=0
+						
+						gosub *disall
+						
+					}
+				}
+			}
+			swbreak
+	case 51
+			objtimek.cnt+=1
+
+			color 0,0,0
+			gmode 2,64,64
+			gcopy 5,37,29,26,33
+
+			if (objtimek.cnt = 70) : txv.cnt = 0 : tyv.cnt = 0
+			if cannon = 3 : target = cnt : gosub *bosshit :dis.cnt = 1 :cannon = 0: ds_play 3
+
+			if dis.cnt>=1{
+					objtimek.cnt+=1
+					//当たり判定の範囲
+					hitchklenghx.cnt=-1000
+					hitchklenghy.cnt=-1000
+				
+					//中心座標用加算変数
+					tcplusx.cnt=-1000
+					tcplusy.cnt=-1000
+
+					eh2.cnt=90
+					txv.cnt=cosa(eh2.cnt)/5 : tyv.cnt=sina(eh2.cnt)/5
+	
+					if objtimek.cnt>=5:objtimek.cnt=0:objtimek2.cnt+=1
+					objtimek3.cnt=(objtimek2.cnt+1)*64
+					gmode 2,64,64
+					gcopy 7,objtimek3.cnt,0,64,64
+					pos tx2.cnt-4,ty2.cnt-4:gcopy 7,objtimek3.cnt,0,64,64
+					pos tx2.cnt-20,ty2.cnt-4:gcopy 7,objtimek3.cnt,0,64,64
+					pos tx2.cnt+30,ty2.cnt-40:gcopy 7,objtimek3.cnt,0,64,64
+					pos tx2.cnt-10,ty2.cnt+20:gcopy 7,objtimek3.cnt,0,64,64
+					if objtimek2.cnt>9{
+						objtimek.cnt=0:objtimek2.cnt=0:objtimek3.cnt=0
+						ts.cnt=0:dis.cnt=0:tf.cnt=0
+						//当たり判定の範囲
+						hitchklenghx.cnt=20
+						hitchklenghy.cnt=20
+					
+						//中心座標用加算変数
+						tcplusx.cnt=0
+						tcplusy.cnt=9
+						gook += 1
+					}
+			}
+				
+			swbreak
+		case 55
+			if dis.cnt=0{
+				objtimek.cnt+=1
+				//mes objtimek.cnt
+				gmode 2,48,80
+				gcopy 15,0,0,48,80
+				gmode 2,,
+
+				if objtimek.cnt >= 50&objtimek.cnt <= 55	:resetmove cnt,0,2
+				if objtimek.cnt >= 60&objtimek.cnt >= 70	:txv.cnt=0:tyv.cnt=0
+				if objtimek.cnt >= 70&objtimek.cnt<= 80		:resetmove cnt,180,1
+				if objtimek.cnt >= 80&objtimek.cnt<= 130	:txv.cnt=0:tyv.cnt=0
+
+				if objtimek.cnt>=200&objtimek.cnt<=220:resetmove cnt,180,1
+				if objtimek.cnt>=221&objtimek.cnt<=250:txv.cnt=0:tyv.cnt=0
+				if objtimek.cnt>=340&objtimek.cnt<=360:resetmove cnt,0,1
+				if objtimek.cnt>=361&objtimek.cnt<=380:txv.cnt=0:tyv.cnt=0
+				if objtimek.cnt>=450&objtimek.cnt<=500:resetmove cnt,180,2
+				if objtimek.cnt>=501&objtimek.cnt<=580:txv.cnt=0:tyv.cnt=0
+				if objtimek.cnt>=590&objtimek.cnt<=620:resetmove cnt,0,2
+				if objtimek.cnt>=621&objtimek.cnt<=680:txv.cnt=0:tyv.cnt=0
+						
+				if objtimek.cnt >= 20 & objtimek.cnt <= 670{
+					target=cnt:type=2:spd=2
+					if objtimek.cnt\25=0:gosub *uzudanmak
+					target=0:type=0:spd=0
+					
+					target=cnt:spd=3:type=1		;スピード設定わすれずに
+					if frame\10=0:gosub *uzudanmak
+					
+					target=cnt:spd=3:type=1		;スピード設定わすれずに
+					if frame\10=0:gosub *gyakuuzudanmak
+					target=0:spd=0:type=0
+					
+				}
+
+				if objtimek.cnt >= 10 & objtimek.cnt <= 20{
+					txv.cnt=0:tyv.cnt=0
+					target=cnt:type=5:spd=5
+					if objtimek.cnt\2=0:gosub *uzudanmak
+					target=0:type=0:spd=0
+				}
+				if objtimek.cnt >= 50 & objtimek.cnt <= 60{
+					target=cnt:type=5:spd=5
+					if objtimek.cnt\2=0:gosub *gyakuuzudanmak
+					target=0:type=0:spd=0
+				}
+				if objtimek.cnt >= 100 & objtimek.cnt <= 110{
+					txv.cnt=0:tyv.cnt=0
+					target=cnt:type=5:spd=5
+					if objtimek.cnt\2=0:gosub *uzudanmak
+					target=0:type=0:spd=0
+				}
+				if objtimek.cnt >= 150 & objtimek.cnt <= 160{
+					target=cnt:type=5:spd=5
+					if objtimek.cnt\2=0:gosub *gyakuuzudanmak
+					target=0:type=0:spd=0
+				}
+				if objtimek.cnt >= 200 & objtimek.cnt <= 210{
+					txv.cnt=0:tyv.cnt=0
+					target=cnt:type=5:spd=5
+					if objtimek.cnt\2=0:gosub *uzudanmak
+					target=0:type=0:spd=0
+				}
+				if objtimek.cnt >= 250 & objtimek.cnt <= 260{
+					target=cnt:type=5:spd=5
+					if objtimek.cnt\2=0:gosub *gyakuuzudanmak
+					target=0:type=0:spd=0
+				}
+				if objtimek.cnt >= 300 & objtimek.cnt <= 310{
+					txv.cnt=0:tyv.cnt=0
+					target=cnt:type=5:spd=5
+					if objtimek.cnt\2=0:gosub *uzudanmak
+					target=0:type=0:spd=0
+				}
+				if objtimek.cnt >=350 & objtimek.cnt <= 360{
+					target=cnt:type=5:spd=5
+					if objtimek.cnt\2=0:gosub *gyakuuzudanmak
+					target=0:type=0:spd=0
+				}
+				if objtimek.cnt>=300&objtimek.cnt<=310:kg=1
+				if objtimek.cnt=400:kg=1
+				if objtimek.cnt=520:kg=1
+				if kg=1{
+										
+					if objtimek.cnt=302|kg=1:efx_f=160:efy_f=160:efx_e=160:efy_e=160:ds_play 13:utot=0
+					if objtimek.cnt=303:efycount=0:efxcount=0
+					if objtimek.cnt=403:efycount=0:efxcount=0
+					if frame\3=0:efxcount+=1
+					if efxcount=4:efxcount=0:efycount+=1
+					if efycount=8:efycount=7:efxcount=1
+					if efycount=4{
+						
+						if utot=1:break
+						target=cnt:mukaukakudo=90
+						//if mode=0:mode=2
+						gosub *laser_ramon1
+						tmptate=tcx.cnt
+						tcx.cnt-=10
+						gosub *laser_ramon1
+						tcx.cnt-=10
+						gosub *laser_ramon1
+						tcx.cnt+=20
+						gosub *laser_ramon1
+						tcx.cnt+=10
+						gosub *laser_ramon1
+						tcx.cnt+=10
+						gosub *laser_ramon1
+						tcx.cnt=tmptate
+						target=0:mukaukakudo=0
+						utot=1:kg=0:ds_play 14
+					}
+				
+					
+					pos (tx.cnt/1000)-55,(ty.cnt/1000)-30
+					gcopy 16,efx_f*efxcount,efy_f*efycount,efx_e,efy_e
+				}
+				
+					if objtimek.cnt >= 700 & objtimek.cnt <= 705{
+					
+					target=cnt:type=9:spd=2
+					if objtimek.cnt\5=0:gosub *uzudanmak
+					target=0:type=0:spd=0
+					}
+					
+				if objtimek.cnt>=1000:objtimek.cnt=0
+				if hissatuf=2:utot=0:wapon2kaun=550
+					if wapon2kaun=599:kg=1:ds_play 10
+					if kg=1:kg2=1
+					if kg2=1:kg2k+=1
+					if kg2k>=300:kg2k=0:kg2=0
+
+			}else{
+				if zhp>0:break
+					if objtimek.cnt=1{
+						eh2.cnt=270
+						txv.cnt=cosa(eh2.cnt)/10 : tyv.cnt=sina(eh2.cnt)/10
+					}
+					
+					gmode 2,64,64
+					gcopy 5,37,29,26,33
+					objtimek.cnt+=1
+					//当たり判定の範囲
+					hitchklenghx.cnt=-1000
+					hitchklenghy.cnt=-1000
+				
+					//中心座標用加算変数
+					tcplusx.cnt=-1000
+					tcplusy.cnt=-1000
+					disBullet(10)
+					
+
+
+				if objtimek.cnt>=5:objtimek.cnt=0:objtimek2.cnt+=1
+					objtimek3.cnt=(objtimek2.cnt+1)*64
+					gmode 2,64,64
+					gcopy 7,objtimek3.cnt,0,64,64
+					pos tx2.cnt-4,ty2.cnt-4:gcopy 7,objtimek3.cnt,0,64,64
+					pos tx2.cnt-20,ty2.cnt-4:gcopy 7,objtimek3.cnt,0,64,64
+					pos tx2.cnt+30,ty2.cnt-40:gcopy 7,objtimek3.cnt,0,64,64
+					pos tx2.cnt-10,ty2.cnt+20:gcopy 7,objtimek3.cnt,0,64,64
+					if objtimek2.cnt>9{
+						objtimek.cnt=2:objtimek2.cnt=0:objtimek3.cnt=0
+						
+						gosub *disall
+						gook+=1
+						dmplay 0,16
+					}
+					
+					
+			}
+			swbreak
+		
+
+
+//----------------------------弾の処理
+//オブジェクトフレームに＋１する。
+//dis.cnt=1だったら、当たり判定をマイナスにして
+//移動量を初期化。カウントプログラムで消滅画像表示
+//表示後、フラグを初期化して消滅
+		case 2 :case 7 :case 10 :case 13:case 19:case 24:case 27:case 37:case 42
+			if dis.cnt=0{
+				objtimek.cnt+=1
+				gmode 2
+				if ts.cnt=2:gcopy 5,2,0,14,14
+				if ts.cnt=24:gcopy 5,13,123,14,12
+				if ts.cnt=7:gcopy 5,2,14,13,13
+				if ts.cnt=10:gcopy 5,2,62,13,14
+				if ts.cnt=19{
+					gmode 2,13,55
+					grotate 5,2,74,tk.cnt,13,45
+				}
+				if ts.cnt=27:gcopy 5,65,0,25,27
+				if ts.cnt=37{
+					
+					gmode 5,14,5,200
+					grotate 5,66,30,tk.cnt,14+objtimek2.cnt,5+(objtimek.cnt*8)
+					gmode 2,,
+					
+					if objtimek.cnt>=50:objtimek.cnt=50:objtimek2.cnt+=1
+					if objtimek.cnt<50 :ty.cnt+=double(objtimek.cnt/5)*1000
+					if objtimek2.cnt>14:objtimek2.cnt=15:objtimek3.cnt+=1
+
+					if objtimek3.cnt>=100{
+						ty.cnt+=5*1000:objtimek.cnt-=2
+						if cannon=2:cannon=3
+					}
+					//当たり判定の範囲
+					hitchklenghx.cnt=objtimek2.cnt-8
+					hitchklenghy.cnt=5+(objtimek.cnt*4)
+				
+					//中心座標用加算変数
+					tcplusx.cnt=-5
+					tcplusy.cnt=0
+					
+				}
+				if ts.cnt=42{
+					
+					gmode 5,14,5,200
+					grotate 5,66,30,tk.cnt,4+objtimek2.cnt,5+(objtimek.cnt*9)
+					if objtimek.cnt>=50{
+						objtimek.cnt=50
+						txv.cnt=0:tyv.cnt=0
+						objtimek3.cnt+=1
+						
+						if objtimek3.cnt\5=0&(objtimek3.cnt<=199)&zhp(hm.cnt)>0{
+							if objtimek2.cnt<14:objtimek2.cnt+=10
+							mukaukakudo=eh2.cnt
+							spd=1
+							target=hm.cnt
+							gosub *laser_ramon3
+							mukaukakudo=0
+							spd=0
+							target=0
+						}
+					}
+					
+					if (objtimek3.cnt>=100)|(dis(hm.cnt)=1) :resetmove cnt,eh2.cnt,1:objtimek.cnt-=2:objtimek3.cnt=-2
+					if objtimek3.cnt<0:objtimek3.cnt=-2:resetmove cnt,eh2.cnt,1:objtimek.cnt-=2
+					
+				}
+				if ts.cnt=13{
+					gcopy 5,2,61,13,13
+					if objtimek.cnt<=60&objtimek.cnt>=50{
+						target=cnt
+						getsankak target
+						eh2.cnt=b
+						txv.cnt=cosa(eh2.cnt)/2 : tyv.cnt=sina(eh2.cnt)/2
+						target=0
+					}
+				
+				
+				}
+			}else{
+				objtimek.cnt+=1
+				//当たり判定の範囲
+				hitchklenghx.cnt=-1000
+				hitchklenghy.cnt=-1000
+			
+				//中心座標用加算変数
+				tcplusx.cnt=-1000
+				tcplusy.cnt=-1000
+
+				txv.cnt=0:tyv.cnt=0
+
+				if objtimek.cnt>=5:objtimek.cnt=0:objtimek2.cnt+=1
+				objtimek3.cnt=objtimek2.cnt*13
+				if objtimek2.cnt>2{
+					objtimek.cnt=0:objtimek2.cnt=0:objtimek3.cnt=0
+					tf.cnt=0:ts.cnt=0:dis.cnt=0:tf.cnt=0
+					txv.cnt=0
+					tyv.cnt=0
+					
+				}
+				gmode 2
+				color 255,255,255
+				if ts.cnt=2:gcopy 5,15+objtimek3.cnt,0,13,13
+				if ts.cnt=42:gcopy 5,15+objtimek3.cnt,0,13,13
+				if ts.cnt=24:gcopy 5,13+objtimek3.cnt,123,13,13
+				if ts.cnt=7:gcopy 5,15+objtimek3.cnt,14,13,13
+				if ts.cnt=10:gcopy 5,15+objtimek3.cnt,14,13,13
+				if ts.cnt=13:gcopy 5,15+objtimek3.cnt,62,13,13
+				if ts.cnt=19:gcopy 5,15+objtimek3.cnt,62,13,13
+				if ts.cnt=27:gcopy 5,65+objtimek3.cnt*2,0,25,26
+			}
+		swbreak
+		
+//----------------------------弾の処理２
+
+		case 20
+			if dis.cnt=0{
+				objtimek.cnt+=1
+				gmode 2
+				gcopy 5,4,2,12,12
+				target=cnt
+				getsankak target
+				
+				target=0
+				
+				if objtimek.cnt<=25&objtimek.cnt>=0{
+					
+					if eh2.cnt>270&eh2.cnt<359	:eh2.cnt+=5
+					if eh2.cnt<270&eh2.cnt>90	:eh2.cnt-=5
+					if eh2.cnt>0-1&eh2.cnt<90	:eh2.cnt+=5
+					
+					if eh2.cnt>359 : eh2.cnt=0
+					if eh2.cnt<0   : eh2.cnt=359
+					txv.cnt=cosa(eh2.cnt)/2 : tyv.cnt=sina(eh2.cnt)/2
+					}
+				if objtimek.cnt<=30&objtimek.cnt>=30{
+
+					if stage=4|stage=6{
+						
+						eh2.cnt=b
+						if mx<=50|my<=ty2.cnt|mx>=300:eh2.cnt=90
+						txv.cnt=cosa(eh2.cnt)/1 : tyv.cnt=sina(eh2.cnt)/1
+					}
+					if stage=2{
+						eh2.cnt=b
+						txv.cnt=cosa(eh2.cnt)/1 : tyv.cnt=sina(eh2.cnt)/1
+					}
+				}
+				
+				
+			}else{
+				objtimek.cnt+=1
+				//当たり判定の範囲
+				hitchklenghx.cnt=-1000
+				hitchklenghy.cnt=-1000
+			
+				//中心座標用加算変数
+				tcplusx.cnt=-1000
+				tcplusy.cnt=-1000
+
+				txv.cnt=0:tyv.cnt=0
+
+				if objtimek.cnt>=5:objtimek.cnt=0:objtimek2.cnt+=1
+				objtimek3.cnt=objtimek2.cnt*13
+				if objtimek2.cnt>2{
+					objtimek.cnt=0:objtimek2.cnt=0:objtimek3.cnt=0
+					tf.cnt=0:ts.cnt=0:dis.cnt=0:tf.cnt=0
+					txv.cnt=0
+					tyv.cnt=0
+					
+				}
+				gmode 2
+				gcopy 5,15+objtimek3.cnt,0,13,13
+				
+				
+			
+			}
+		swbreak
+		//弾の処理３
+		case 26:case 56
+			if dis.cnt=0{
+				if ts.cnt=26{
+				objtimek.cnt+=1
+				gmode 2
+				gcopy 5,2,0,14,14
+				target=cnt
+				getsankak target
+				target=0
+				
+				if objtimek.cnt<=50&objtimek.cnt>=10{
+					
+					txv.cnt=cosa(eh2.cnt)/(objtimek.cnt/4)
+					tyv.cnt=sina(eh2.cnt)/(objtimek.cnt/4)
+					}
+				if objtimek.cnt<=50&objtimek.cnt>=50{
+					
+					eh2.cnt=b
+					txv.cnt=cosa(eh2.cnt)/2 : tyv.cnt=sina(eh2.cnt)/2
+				}
+			}
+				if ts.cnt=56{
+					objtimek.cnt+=1
+					gmode 2
+					gcopy 5,2,0,14,14
+					target=cnt
+					getsankak target
+					target=0
+					
+					if objtimek.cnt<=50&objtimek.cnt>=10{
+						
+						txv.cnt=cosa(eh2.cnt)/(objtimek.cnt/4)
+						tyv.cnt=sina(eh2.cnt)/(objtimek.cnt/4)
+						}
+					if objtimek.cnt<=50&objtimek.cnt>=50{
+						
+						target=cnt
+						gosub *endanmak
+						target=0
+						dis.cnt=1
+					}
+				}
+				
+			}else{
+				objtimek.cnt+=1
+				//当たり判定の範囲
+				hitchklenghx.cnt=-1000
+				hitchklenghy.cnt=-1000
+			
+				//中心座標用加算変数
+				tcplusx.cnt=-1000
+				tcplusy.cnt=-1000
+
+				txv.cnt=0:tyv.cnt=0
+
+				if objtimek.cnt>=5:objtimek.cnt=0:objtimek2.cnt+=1
+				objtimek3.cnt=objtimek2.cnt*13
+				if objtimek2.cnt>2{
+					objtimek.cnt=0:objtimek2.cnt=0:objtimek3.cnt=0
+					tf.cnt=0:ts.cnt=0:dis.cnt=0:tf.cnt=0
+					txv.cnt=0
+					tyv.cnt=0
+					
+				}
+				gmode 2
+				gcopy 5,15+objtimek3.cnt,0,13,13
+				
+				
+			
+			}
+		swbreak
+
+//----------------------------エフェクトの処理
+//オブジェクトフレームに＋１する。
+//50フレームでキャラ表示
+//100フレームで無敵解除
+		case 3
+			objtimek.cnt+=1
+			//パーティクルをつかう
+			gmode 5,,,255
+			d3setcam 0,0,450,0,0,0
+			d3particle 1,-ty2.cnt+220,-tx2.cnt+220,0,10
+				
+			if objtimek.cnt=50{
+				mx=150:my=350
+				mutekif=2
+				objtimek.cnt=0:objtimek2.cnt=0:objtimek3.cnt=0
+				tf.cnt=0:ts.cnt=0
+				txv.cnt=0
+				tyv.cnt=0
+				
+			}
+		swbreak
+		case 35
+			objtimek.cnt+=1
+			//パーティクルをつかう
+			gmode 5,,,255
+			d3setcam 0,0,450,0,0,0
+			d3particle 1,-ty2.cnt+220,-tx2.cnt+220,0,10
+				
+			if objtimek.cnt=50{
+				
+				objtimek.cnt=0:objtimek2.cnt=0:objtimek3.cnt=0
+				tf.cnt=0:ts.cnt=0
+				txv.cnt=0
+				tyv.cnt=0
+				
+			}
+		swbreak
+		
+//----------------------------かすりエフェクトの処理
+//オブジェクトフレームに＋１する。
+//
+		case 8
+			objtimek.cnt+=1
+			//パーティクルをつかう
+			gmode 5,,,150
+			d3setcam 0,0,450,0,0,0
+			d3particle 1,-ty2.cnt+200,-tx2.cnt+220,0,4
+			gmode 2,,
+				
+			if objtimek.cnt=20{
+				objtimek.cnt=0:objtimek2.cnt=0:objtimek3.cnt=0
+				tf.cnt=0:ts.cnt=0
+				txv.cnt=0
+				tyv.cnt=0
+			}
+		swbreak
+//----------------------------ダメージエフェクトの処理
+//オブジェクトフレームに＋１する。
+//
+		case 15
+			objtimek.cnt+=1
+			//パーティクルをつかう
+			gmode 5,,,200
+			d3setcam 0,0,450,0,0,0
+			d3particle 2,-ty2.cnt+220,-tx2.cnt+220,0,20
+			gmode 2,,
+				
+			if objtimek.cnt=10{
+				objtimek.cnt=0:objtimek2.cnt=0:objtimek3.cnt=0
+				tf.cnt=0:ts.cnt=0
+				txv.cnt=0
+				tyv.cnt=0
+			}
+		swbreak
+//----------------------------雲エフェクト
+//オブジェクトフレームに＋１する。
+//
+		case 11
+			objtimek.cnt+=1
+
+			color 0,0,0
+			gmode 4,,,100
+			gcopy 8,0,229,69,34
+			gmode 2,,
+				
+		swbreak
+//ーー--------------------------------------チェインガード
+		case 44
+			
+			gmode 2,199,120
+			gcopy 14,0,0,199,120
+			objtimek3.cnt+=1
+			if objtimek3.cnt>=50{
+				objtimek2.cnt+=1
+				tyv.cnt=0:txv.cnt=0
+				if objtimek2.cnt>=50{
+					objtimek.cnt+=1
+					if (180-objtimek.cnt*5)<=0:objtimek2.cnt=0:objtimek.cnt=0
+					target=cnt:spd=8:type=7			;スピード設定わすれずに
+					if objtimek.cnt\40=0:gosub *uzudanmak
+					target=cnt:spd=10:type=0			;スピード設定わすれずに
+					if objtimek.cnt\30=0:gosub *laser
+					target=0:spd=0:type=0
+					tyv.cnt=sina(89)/8
+				}
+			if dis.cnt>=1{
+			if zhp.cnt>=1:break
+			if dis.cnt=1:objtimek.cnt=0:objtimek2.cnt=0:objtimek3.cnt=0:target=cnt:gosub *bosshit:target=0:dis.cnt+=1
+			objtimek.cnt+=1
+					//当たり判定の範囲
+					hitchklenghx.cnt=-1000
+					hitchklenghy.cnt=-1000
+				
+					//中心座標用加算変数
+					tcplusx.cnt=-1000
+					tcplusy.cnt=-1000
+
+					
+
+					eh2.cnt=90
+					txv.cnt=cosa(eh2.cnt)/5 : tyv.cnt=sina(eh2.cnt)/5
+	
+					if objtimek.cnt>=5:objtimek.cnt=0:objtimek2.cnt+=1
+					objtimek3.cnt=(objtimek2.cnt+1)*64
+					gmode 2,64,64
+					gcopy 7,objtimek3.cnt,0,64,64
+					pos tx2.cnt-4,ty2.cnt-4:gcopy 7,objtimek3.cnt,0,64,64
+					pos tx2.cnt-20,ty2.cnt-4:gcopy 7,objtimek3.cnt,0,64,64
+					pos tx2.cnt+30,ty2.cnt-40:gcopy 7,objtimek3.cnt,0,64,64
+					pos tx2.cnt-10,ty2.cnt+20:gcopy 7,objtimek3.cnt,0,64,64
+					if objtimek2.cnt>9{
+						objtimek.cnt=0:objtimek2.cnt=0:objtimek3.cnt=0
+						ts.cnt=0:dis.cnt=0:tf.cnt=0
+						//当たり判定の範囲
+						hitchklenghx.cnt=20
+						hitchklenghy.cnt=20
+					
+						//中心座標用加算変数
+						tcplusx.cnt=0
+						tcplusy.cnt=9
+						gook+=1
+					}
+		}
+	}
+			
+			
+		swbreak
+		case 45
+			
+			objtimek3.cnt+=1
+			if objtimek3.cnt>=15{
+				objtimek2.cnt+=1
+				tyv.cnt=0:txv.cnt=0
+				if objtimek2.cnt>=50{
+					objtimek.cnt+=1
+					if (180-objtimek.cnt*5)<=0:ds_play 12:objtimek2.cnt=0:objtimek.cnt=0
+					txv.cnt=cosa(180-objtimek.cnt*5)/8
+					tyv.cnt=sina(90)/8
+				}
+			}
+			gmode 2,143,25
+			gcopy 14,202,0,143,25
+			pos tx2.cnt,ty2.cnt+10
+			gmode 2,12,25
+			
+			grotate 14,202,25,(3.14/4)-double(objtimek.cnt*16)/100,12,35
+			if dis(tc.cnt)>=1:dis.cnt=1
+			if dis.cnt=1:resetmove cnt,eh2.cnt,2:nohit cnt
+		swbreak
+		case 46
+			objtimek3.cnt+=1
+			if objtimek3.cnt>=50{
+				objtimek2.cnt+=1
+				tyv.cnt=0:txv.cnt=0
+				if objtimek2.cnt>=50{
+					objtimek.cnt+=1
+					if (objtimek.cnt*5)>=180:ds_play 12:objtimek2.cnt=0:objtimek.cnt=0:tyv.cnt=0
+					txv.cnt=cosa(objtimek.cnt*5)/8
+					tyv.cnt=sina(90)/8
+				}
+			}
+			gmode 2,145,25
+			grotate 14,202,0,3.14,135,25
+			pos tx2.cnt+60,ty2.cnt+5
+			gmode 2,12,25
+			grotate 14,202,25,-(3.14/4)+double(objtimek.cnt*16)/100,12,45
+			if dis(tc.cnt)>=1:dis.cnt=1
+			if dis.cnt=1:resetmove cnt,eh2.cnt,2:nohit cnt
+	swbreak
+		case 47
+			objtimek3.cnt+=1
+			if objtimek3.cnt>=65{
+				objtimek2.cnt+=1
+				tyv.cnt=0:txv.cnt=0
+				if objtimek2.cnt>=50{
+					objtimek.cnt+=1
+					if (180-objtimek.cnt*5)<=0:ds_play 12:objtimek2.cnt=0:objtimek.cnt=0
+					txv.cnt=cosa(180-objtimek.cnt*5)/8
+					tyv.cnt=sina(90)/8
+				}
+			}
+			gmode 2,143,25
+			gcopy 14,202,0,143,25
+			pos tx2.cnt,ty2.cnt+5
+			gmode 2,12,25
+			grotate 14,202,54,-(3.14/4)+double(objtimek.cnt*16)/100,12,45
+			if dis(tc.cnt)>=1:dis.cnt=1
+			if dis.cnt=1:resetmove cnt,eh2.cnt,2:nohit cnt
+			
+		swbreak
+		case 48
+			objtimek3.cnt+=1
+			if objtimek3.cnt>=100{
+				objtimek2.cnt+=1
+				tyv.cnt=0:txv.cnt=0
+				if objtimek2.cnt>=50{
+					objtimek.cnt+=1
+					if (objtimek.cnt*5)>=180:ds_play 12:objtimek2.cnt=0:objtimek.cnt=0:tyv.cnt=0
+					txv.cnt=cosa(objtimek.cnt*5)/8
+					tyv.cnt=sina(90)/8
+				}
+			}
+			gmode 2,143,25
+			grotate 14,202,0,3.14,133,25
+			pos tx2.cnt+70,ty2.cnt-15
+			gmode 2,12,25
+			grotate 14,202,25,(3.14/4)-double(objtimek.cnt*16)/100,12,45
+			if dis(tc.cnt)>=1:dis.cnt=1
+			if dis.cnt=1:resetmove cnt,eh2.cnt,2:nohit cnt
+		swbreak
+//----------------------------ターゲットエフェクト
+//オブジェクトフレームに＋１する。
+//
+		case 41
+			objtimek.cnt+=1
+
+			gmode 5,14,5,200
+			grotate 5,66,30,tk.cnt,4,10*objtimek.cnt
+
+			if objtimek.cnt>=50{
+				txv.cnt=0:tyv.cnt=0
+				
+			}
+			if objtimek.cnt>=80{
+				tf.cnt=0:ts.cnt=0
+			}
+				
+		swbreak
+				
+//----------------------------☆エフェクト
+//オブジェクトフレームに＋１する。
+//
+		case 28
+			objtimek.cnt+=1
+
+			color 0,0,0
+			//パーティクルをつかう
+			gmode 5,,,150
+			d3setcam 0,0,450,0,0,0
+			d3particle tc.cnt,-ty2.cnt+220,-tx2.cnt+220,0,7
+			gmode 2,,
+				
+		swbreak
+		case 29
+			objtimek.cnt+=1
+
+			color 0,0,0
+			//パーティクルをつかう
+			gmode 5,,,150
+			d3setcam 0,0,450,0,0,0
+			d3particle tc.cnt,-ty2.cnt+220,-tx2.cnt+220,0,3
+			gmode 2,,
+				
+		swbreak
+		case 30
+			objtimek.cnt+=1
+
+			color 0,0,0
+			//パーティクルをつかう
+			gmode 5,,,150
+			d3setcam 0,0,450,0,0,0
+			d3particle tc.cnt,-ty2.cnt+220,-tx2.cnt+220,0,20
+			gmode 2,,
+				
+		swbreak
+//----------------------------アイテムの処理
+//オブジェクトフレームに＋１する。
+//dis.cnt=1なら、当たり判定をマイナス
+//にして消滅させる。1～10まで減速しつつ上方向
+//11からは下方向へ移動
+		case 4
+			if dis.cnt=0{
+				objtimek.cnt+=1
+				gmode 2,12,18
+				gcopy 5,54,0,12,18
+				if objtimek.cnt<=10&objtimek.cnt>=1{
+					eh2.cnt=270
+					txv.cnt=cosa(eh2.cnt)/objtimek.cnt
+					tyv.cnt=sina(eh2.cnt)/objtimek.cnt
+				}
+				if objtimek.cnt>11{
+					eh2.cnt=90
+					txv.cnt=cosa(eh2.cnt)/2 : tyv.cnt=sina(eh2.cnt)/2
+				}
+					
+			}else{
+				//当たり判定の範囲
+				hitchklenghx.cnt=-1000
+				hitchklenghy.cnt=-1000
+			
+				//中心座標用加算変数
+				tcplusx.cnt=-1000
+				tcplusy.cnt=-1000
+
+				objtimek.cnt=0:objtimek2.cnt=0:objtimek3.cnt=0
+				ts.cnt=0:dis.cnt=0:tf.cnt=0:tf.cnt=0
+			}
+		swbreak
+
+	
+//----------------------------１ＵＰアイテムの処理
+//オブジェクトフレームに＋１する。
+//dis.cnt=1なら、当たり判定をマイナス
+//にして消滅させる。1～10まで減速しつつ上方向
+//11からは下方向へ移動
+		case 21
+			if dis.cnt=0{
+				objtimek.cnt+=1
+				gmode 2,12,18
+				gcopy 5,18,75,32,27
+				if objtimek.cnt<=10&objtimek.cnt>=1{
+					eh2.cnt=270
+					txv.cnt=cosa(eh2.cnt)/objtimek.cnt
+					tyv.cnt=sina(eh2.cnt)/objtimek.cnt
+				}
+				if objtimek.cnt>20{
+					eh2.cnt=90
+					txv.cnt=cosa(eh2.cnt)/4 : tyv.cnt=sina(eh2.cnt)/4
+				}
+					
+			}else{
+				//当たり判定の範囲
+				hitchklenghx.cnt=-1000
+				hitchklenghy.cnt=-1000
+			
+				//中心座標用加算変数
+				tcplusx.cnt=-1000
+				tcplusy.cnt=-1000
+
+				objtimek.cnt=0:objtimek2.cnt=0:objtimek3.cnt=0
+				ts.cnt=0:dis.cnt=0:tf.cnt=0
+			}
+		swbreak
+
+	case 60
+			if dis.cnt=0{
+				objtimek.cnt+=1
+				gmode 2,44,53
+				gcopy 17,0,0,44,53
+				
+					
+			}else{
+				//当たり判定の範囲
+				hitchklenghx.cnt=-1000
+				hitchklenghy.cnt=-1000
+			
+				//中心座標用加算変数
+				tcplusx.cnt=-1000
+				tcplusy.cnt=-1000
+
+				objtimek.cnt=0:objtimek2.cnt=0:objtimek3.cnt=0
+				ts.cnt=0:dis.cnt=0:tf.cnt=0
+			}
+		swbreak
+		default
+		swend
+	loop
+//----------------------------ショット移動
+	repeat maxdansu
+		if shotf.cnt<1 :continue						;存在する弾だけ
+		if shotf.cnt=1{
+			shoty.cnt+=shotyv.cnt
+			shotx.cnt+=shotxv.cnt
+			shotx2.cnt=shotx.cnt/1000
+			shoty2.cnt=shoty.cnt/1000
+			shotcx.cnt=shotx2.cnt+1
+			shotcy.cnt=shoty2.cnt+11
+			
+			pos shotx2.cnt,shoty2.cnt
+			gmode 2,2,22:gcopy 5,0,0,2,22
+
+			if wapon2kaun>=550 & sens=1{
+				repeat tmax
+				if tf.cnt<1:continue
+				if ts.cnt=50|ts.cnt=55{
+						targets=cnt
+						break
+					}
+				loop
+				getsankak2 targets,cnt
+				eh3.cnt=b
+				shotxv.cnt=cosa(eh3.cnt)/1 : shotyv.cnt=sina(eh3.cnt)/1
+			}
+			
+			if (shotx2.cnt>355)|(shotx2.cnt<-50)|(shoty2.cnt<-50)|(shoty2.cnt>500) {
+				shotf.cnt=0
+				continue
+			}
+			if shotdis.cnt=1{
+				shotf.cnt=0
+				shotdis.cnt=0
+				shotx2.cnt=0
+				shoty2.cnt=0
+				shotcx.cnt=0
+				shotcy.cnt=0
+			}
+		}
+//----------------------------もれ太スパーク
+		if shotf.cnt=2{
+			shottimek.cnt+=1
+			kaiten+=1
+			shoty.cnt+=shotyv.cnt
+			shotx.cnt+=shotxv.cnt
+			shotx2.cnt=shotx.cnt/1000
+			shoty2.cnt=shoty.cnt/1000
+			shotcx.cnt=shotx2.cnt+1
+			shotcy.cnt=shoty2.cnt+11
+
+			if shottimek.cnt<=10&shottimek.cnt>=0{
+				
+				pos shotx2.cnt,shoty2.cnt
+				gmode 2,34,34:grotate 5,0,27,kaiten,34,34
+				
+			}
+			if shottimek.cnt<=50&shottimek.cnt>=11{
+
+				shoty.cnt-=shotyv.cnt
+				shotx.cnt-=shotxv.cnt
+				pos shotx2.cnt,shoty2.cnt
+				gmode 2,34,34:grotate 5,0,27,kaiten,34,34
+				target=cnt
+				gosub *spark_on
+				target=0
+				
+			}
+			if shottimek.cnt<=100&shottimek.cnt>=50{
+				repeat tmax
+					if tf.cnt<1:continue
+					
+					if ts.cnt=1|ts.cnt=6|ts.cnt=5|ts.cnt=9|ts.cnt=12|ts.cnt=14{
+					
+						targets=cnt
+						break
+					}
+					if ts.cnt=17|ts.cnt=18|ts.cnt=22|ts.cnt=23|ts.cnt=25|ts.cnt=31|ts.cnt=32|ts.cnt=33|ts.cnt=36|ts.cnt=38|ts.cnt=39|ts.cnt=40|ts.cnt=50|ts.cnt=55{
+						targets=cnt
+						break
+					}
+				loop
+				
+				getsankak2 targets,cnt
+				
+				eh3.cnt=b
+				shotxv.cnt=cosa(eh3.cnt)*sp : shotyv.cnt=sina(eh3.cnt)*sp
+				
+				pos shotx2.cnt,shoty2.cnt
+				gmode 2,34,34:grotate 5,0,27,kaiten,34,34
+				target=cnt
+				gosub *spark_on
+				target=0
+			}
+			if shottimek.cnt>=100{
+				pos shotx2.cnt,shoty2.cnt
+				gmode 2,34,34:grotate 5,0,27,kaiten,34,34
+			}
+			if (shotx2.cnt>540)|(shotx2.cnt<-150)|(shoty2.cnt<-150)|(shoty2.cnt>550) {
+				shotf.cnt=0
+				shotdis.cnt=1
+				shotx2.cnt=0
+				shoty2.cnt=0
+				shotcx.cnt=0
+				shotcy.cnt=0
+				shotxv.cnt=0 : shotyv.cnt=0
+				eh3.cnt=0
+				shottimek.cnt=0
+				continue
+			}
+		}
+//----------------------------もれたウェポン２
+		if shotf.cnt=3{
+			shottimek.cnt+=1
+			
+			shoty.cnt+=shotyv.cnt
+			shotx.cnt+=shotxv.cnt
+			shotx2.cnt=shotx.cnt/1000
+			shoty2.cnt=shoty.cnt/1000
+			shotcx.cnt=shotx2.cnt+1
+			shotcy.cnt=shoty2.cnt+11
+
+			if shottimek.cnt<=10&shottimek.cnt>=0{
+				
+				gmode 5,,,255:d3setcam 0,0,450,0,0,0
+				d3particle 1,-shoty2.cnt+220,-shotx2.cnt+220,0,10
+				
+			}
+			if shottimek.cnt<=50&shottimek.cnt>=11{
+
+				shoty.cnt-=shotyv.cnt
+				shotx.cnt-=shotxv.cnt
+				gmode 5,,,255:d3setcam 0,0,450,0,0,0
+				d3particle 1,-shoty2.cnt+220,-shotx2.cnt+220,0,10
+				
+				
+			}
+			if shottimek.cnt<=100&shottimek.cnt>=50{
+				repeat tmax
+					if tf.cnt<1:continue
+					if ts.cnt=1|ts.cnt=6|ts.cnt=5|ts.cnt=9|ts.cnt=12|ts.cnt=14{
+						targets=cnt
+						break
+					}
+					
+				loop
+				
+				getsankak2 target
+				eh3.cnt=b
+				shotxv.cnt=cosa(eh3.cnt)*sp : shotyv.cnt=sina(eh3.cnt)*sp
+				
+				gmode 5,,,255:d3setcam 0,0,450,0,0,0
+				d3particle 1,-shoty2.cnt+220,-shotx2.cnt+220,0,10
+				
+			}
+			if shottimek.cnt>=100{
+				gmode 5,,,255:d3setcam 0,0,450,0,0,0
+				d3particle 1,-shoty2.cnt+220,-shotx2.cnt+220,0,10
+			}
+			if (shotx2.cnt>440)|(shotx2.cnt<-150)|(shoty2.cnt<-150)|(shoty2.cnt>550) {
+				shotf.cnt=0
+				shotdis.cnt=0
+				shotx2.cnt=0
+				shoty2.cnt=0
+				shotcx.cnt=0
+				shotcy.cnt=0
+				shotxv.cnt=0 : shotyv.cnt=0
+				eh3.cnt=0
+				shottimek.cnt=0
+				continue
+			}
+		}
+		
+	loop
+//------------------------------ここまで
+
+	return
+*hitchk
+	//return
+	
+	if shotdasuna=1:return
+	if mutekif=1:return
+	yhit=0:xhit=0
+	ykasuri=0:xkasuri=0
+
+	foreach tf
+	if tf.cnt=-1:break
+	if tf.cnt<1:continue
+	if ts.cnt=3:continue
+	
+		yhit=0:xhit=0
+		ykasuri=0:xkasuri=0
+
+		if drawhantei=1{
+			color 255,0,0
+			boxf tcx.cnt,tcy.cnt,tcx.cnt+hitchklenghx.cnt,tcy.cnt+hitchklenghy.cnt
+			boxf tcx.cnt,tcy.cnt,tcx.cnt+hitchklenghx.cnt,tcy.cnt-hitchklenghy.cnt
+			boxf tcx.cnt,tcy.cnt,tcx.cnt-hitchklenghx.cnt,tcy.cnt+hitchklenghy.cnt
+			boxf tcx.cnt,tcy.cnt,tcx.cnt-hitchklenghx.cnt,tcy.cnt+hitchklenghy.cnt
+		}
+
+		
+		//自機と敵弾の判定
+		kyoriy=tcy.cnt-mycharcentery
+		kyorix=tcx.cnt-mycharcenterx
+
+		kyoriy=abs(kyoriy)
+		kyorix=abs(kyorix)
+
+		if kyoriy<mycharuppery+hitchklenghy.cnt:yhit=1
+		if kyorix<mycharRightx+hitchklenghx.cnt:xhit=1
+		if kyoriy<kasury+hitchklenghy.cnt:ykasuri=1
+		if kyorix<kasurx+hitchklenghx.cnt:xkasuri=1
+
+		if ykasuri+xkasuri=2{
+			if ts.cnt=2|ts.cnt=7|ts.cnt=10|ts.cnt=13|ts.cnt=19|ts.cnt=20|ts.cnt=24|ts.cnt=26|ts.cnt=27|ts.cnt=37|ts.cnt=43{
+				score+=1:kasurikaunter+=1:kasurikaunterz+=1
+				gosub *kasuri_on
+			}
+		}
+		
+		if yhit+xhit=2{
+			if ts.cnt=60{
+				goto *stagecla3
+			}
+
+			if ts.cnt=1|ts.cnt=5|ts.cnt=9|ts.cnt=16|ts.cnt=14|ts.cnt=17|ts.cnt=22|ts.cnt=31|ts.cnt=32|ts.cnt=33|ts.cnt=36{
+				if mutekif>=2:break
+				dis.cnt=1		
+				gosub *mycharhit	;敵だったらヒット
+			}
+			if ts.cnt=6|ts.cnt=12|ts.cnt=25|ts.cnt=39|ts.cnt=40|ts.cnt=44|ts.cnt=45|ts.cnt=46|ts.cnt=47|ts.cnt=48|ts.cnt=50{
+				if mutekif>=2:break	
+				gosub *mycharhit	;ボスだったらヒット
+			}
+			if ts.cnt=2|ts.cnt=7|ts.cnt=10|ts.cnt=13|ts.cnt=19|ts.cnt=20|ts.cnt=24|ts.cnt=26|ts.cnt=27|ts.cnt=37|ts.cnt=43{
+				if mutekif>=2:break
+				gosub *mycharhit	;弾だったらヒット
+			}
+			if ts.cnt=4{			;アイテム取得
+				shotpower+=1:score+=100
+				dis.cnt=1:mmplay 5;ds_play 5
+				itemgetz+=1
+			}	
+			if ts.cnt=21{
+				life+=1:score+=1000
+				dis.cnt=1:ds_play 7
+			}
+		}
+//----------------------------ショットと敵の判定
+	shotatatta=0
+	if ts.cnt=1|ts.cnt=5|ts.cnt=6|ts.cnt=9|ts.cnt=12|ts.cnt=14		:shotatatta=1
+	if ts.cnt=16|ts.cnt=17|ts.cnt=18|ts.cnt=22|ts.cnt=23|ts.cnt=25	:shotatatta=1
+	if ts.cnt=31|ts.cnt=32|ts.cnt=33|ts.cnt=36|ts.cnt=38|ts.cnt=39	:shotatatta=1
+	if ts.cnt=40|ts.cnt=44|ts.cnt=50|ts.cnt=55:shotatatta=1
+
+	if shotatatta=1{
+		target=cnt
+		repeat maxdansu
+
+			if shotf.cnt<1:continue
+			
+			yhit2=0:xhit2=0
+			
+			kyoriy2=tcy.target-shotcy.cnt
+			kyorix2=tcx.target-shotcx.cnt
+
+			kyoriy2=abs(kyoriy2)
+			kyorix2=abs(kyorix2)
+
+			if kyoriy2<ShotHity+hitchklenghy.target:yhit2=1
+			if kyorix2<ShotHitx+hitchklenghx.target:xhit2=1
+			
+			if yhit2+xhit2=2{
+				
+				if ts.target=1|ts.target=5|ts.target=9|ts.target=16|ts.target=17|ts.target=22{
+					//当たり判定の範囲
+					hitchklenghx.target=-1000
+					hitchklenghy.target=-1000
+				
+					//中心座標用加算変数
+					tcplusx.target=-1000
+					tcplusy.target=-1000
+				
+					ds_play 2;mmplay 6
+					score+=100
+					dis.target=1:shotdis.cnt=1
+				}
+					
+				if ts.target=6|ts.target=18|ts.target=39{
+					score+=100:shotdis.cnt=1
+					chp-=1:ds_play 2
+
+					if ts.target=6{
+					pos tx2.target-4,ty2.target-4
+					gcopy 7,63,0,64,64
+				}
+					if ts.target=18|ts.target=39:gosub *damage_on
+					
+					if chp<=0:dis.target=1
+				}
+				if ts.target=23{
+					score+=100:shotdis.cnt=1
+					zhp.target-=1
+					gosub *damage_on
+					if zhp.target<=0:dis.target=1:disBullet(10)
+				}
+				oscs=0
+				if ts.target=31|ts.target=32|ts.target=33:oscs=1
+				if ts.target=36|ts.target=38|ts.target=40:oscs=1
+				if ts.target=44|ts.target=50|ts.target=55:oscs=1
+				if oscs=1{
+					if wapon2kaun>=550 & sens=1|kg=1|kg2=1:break
+					score+=100:shotdis.cnt=1
+					zhp.target-=1
+					gosub *damage_on
+					if zhp.target<=0:dis.target=1
+				}
+				if ts.target=12|ts.target=25{
+					score+=100:shotdis.cnt=1
+					zhp.target-=1
+					
+					gosub *damage_on
+					
+					
+					if zhp.target<=0:dis.target=1:gosub *bosshit
+				}
+				if ts.target=14{
+					score+=100:shotdis.cnt=1
+					fhp.target-=1
+				
+
+					gosub *damage_on
+					
+					
+					if fhp.target<=0:dis.target=1
+					}
+			}
+		loop	
+	}
+	loop
+
+
+
+	return
+*mycharhit
+
+	ds_play 3
+	if mutekif>=1:return
+	sindaz+=1
+
+	repeat tmax
+		if tf.cnt>0 {continue} if dis.cnt>0 {continue}							;空きフラグを探す
+		eh+
+		eh2.cnt=(eh-1)*10+(pt*5) : if eh2>359 : eh2-=360	;発射角度を求める
+		tf.cnt=1										;フラグオン
+		ts.cnt=3
+	
+		//当たり判定の範囲
+		hitchklenghx.cnt=0
+		hitchklenghy.cnt=0
+
+		//中心座標用加算変数
+		tcplusx.cnt=0
+		tcplusy.cnt=0
+		
+		tc.cnt=255										;色
+		tx.cnt=(mx+20)*1000 :ty.cnt=my*1000				;位置に弾発生(1000倍）
+		txv.cnt=cosa(eh2.cnt)/3 : tyv.cnt=sina(eh2.cnt)/3	;移動方向
+		if eh=36 : eh=0 : break							;36発発射してループを抜ける
+	loop
+
+	life-=1
+	my+=1000
+	mutekif=1
+
+	disBullet(10)		//moretamoduleのdisBullet呼び出し
+	
+	return
+*kasuri_on
+	yobareta3+=1
+	if yobareta3>=10:yobareta3=0
+	if yobareta3>=2:return
+
+	ds_play 6
+	;mmplay 7
+
+	repeat tmax
+		if tf.cnt>0 {continue} if dis.cnt>0 {continue}							;空きフラグを探す
+		eh+
+		rand=rnd(360)
+		eh2.cnt=rand : if eh2>359 : eh2-=360	;発射角度を求める
+		tf.cnt=1										;フラグオン
+		ts.cnt=8
+	
+		//当たり判定の範囲
+		hitchklenghx.cnt=0
+		hitchklenghy.cnt=0
+
+		//中心座標用加算変数
+		tcplusx.cnt=0
+		tcplusy.cnt=0
+		
+		tc.cnt=255										;色
+		tx.cnt=(mx+20)*1000 :ty.cnt=my*1000				;位置に弾発生(1000倍）
+		txv.cnt=cosa(eh2.cnt)/3 : tyv.cnt=sina(eh2.cnt)/3	;移動方向
+		if eh=1 : eh=0 : break							;36発発射してループを抜ける
+	loop
+	
+	return
+*spark_on
+
+	return
+	yobareta+=1
+	if yobareta>=10:yobareta=0
+	if yobareta>=2:return
+
+	repeat tmax
+		if tf.cnt>0 {continue} if dis.cnt>0 {continue}							;空きフラグを探す
+		eh+
+		rand=rnd(360)
+		eh2.cnt=rand : if eh2>359 : eh2-=360	;発射角度を求める
+		tf.cnt=1										;フラグオン
+		ts.cnt=8
+	
+		//当たり判定の範囲
+		hitchklenghx.cnt=0
+		hitchklenghy.cnt=0
+
+		//中心座標用加算変数
+		tcplusx.cnt=0
+		tcplusy.cnt=0
+		
+		tc.cnt=255										;色
+		tx.cnt=(shotx2.target+20)*1000 :ty.cnt=shoty2.target*1000				;位置に弾発生(1000倍）
+		txv.cnt=cosa(eh2.cnt)/3 : tyv.cnt=sina(eh2.cnt)/3	;移動方向
+		if eh=1 : eh=0 : break							;36発発射してループを抜ける
+	loop
+
+	
+
+	return
+*damage_on
+
+	yobareta2+=1
+	if yobareta2>=5:yobareta2=0:ds_play 2;mmplay 6
+	if yobareta2>=2:return
+
+	
+
+	repeat tmax
+		if tf.cnt>0 {continue} if dis.cnt>0 {continue}							;空きフラグを探す
+		eh+
+		rand=rnd(360)
+		eh2.cnt=rand : if eh2>359 : eh2-=360	;発射角度を求める
+		tf.cnt=1										;フラグオン
+		ts.cnt=15
+	
+		//当たり判定の範囲
+		hitchklenghx.cnt=0
+		hitchklenghy.cnt=0
+
+		//中心座標用加算変数
+		tcplusx.cnt=0
+		tcplusy.cnt=0
+		
+		tc.cnt=255										;色
+		tx.cnt=(tcx.target)*1000 :ty.cnt=tcy.target*1000				;位置に弾発生(1000倍）
+		txv.cnt=cosa(eh2.cnt)/2 : tyv.cnt=sina(eh2.cnt)/2	;移動方向
+		if eh=1 : eh=0 : break							;36発発射してループを抜ける
+	loop
+
+	
+
+	return
+*bosshit
+
+	yobareta+=1
+	if yobareta>=2:return
+	repeat tmax
+		if tf.cnt>0 {continue} if dis.cnt>0 {continue}							;空きフラグを探す
+		eh+
+		eh2.cnt=(eh-1)*10+(pt*5) : if eh2>359 : eh2-=360	;発射角度を求める
+		tf.cnt=1										;フラグオン
+		ts.cnt=35
+	
+		//当たり判定の範囲
+		hitchklenghx.cnt=0
+		hitchklenghy.cnt=0
+
+		//中心座標用加算変数
+		tcplusx.cnt=0
+		tcplusy.cnt=0
+		
+		tc.cnt=255										;色
+		tx.cnt=(tcx.target+20)*1000 :ty.cnt=tcy.target*1000				;位置に弾発生(1000倍）
+		txv.cnt=cosa(eh2.cnt)/3 : tyv.cnt=sina(eh2.cnt)/3	;移動方向
+		if eh=36 : eh=0 : break							;36発発射してループを抜ける
+	loop
+
+	
+	disBullet(10)
+
+
+	return
+*sleeping
+
+	noteget par,1
+	par=int(par)
+
+	if kauntpar>=par{
+	kauntpar=0:turn+=1
+	}
+
+	kauntpar+=1
+	return
+*teisi
+	
+	if fantao=6:fantao=0:turn+=1
+	if gook >=1 :turn+=1:gook=0
+	return
+*teisi2
+	
+	if (gook >= 5) : turn += 1 : gook = 0
+	return
+*disall
+	repeat tmax
+		if tf.cnt<1:continue
+		if ts.cnt=2|ts.cnt=7|ts.cnt=10|ts.cnt=13{
+			
+			tf.cnt=0 
+			ts.cnt=0
+			dis.cnt=0
+						
+		//当たり判定の範囲
+		hitchklenghx.cnt=0
+		hitchklenghy.cnt=0
+
+		//中心座標用加算変数
+		tcplusx.cnt=-1000
+		tcplusy.cnt=-1000
+		}
+	
+		
+	loop
+
+	return
+*q_continue
+	if replayf=1:life++:goto *mainloop
+	if maxcont-cont<=0:goto *gameov
+		;pos 134,300:button "はい",*mainloopas
+		;			button "いいえ",*gameov
+	repeat
+		redraw 1:await 0:redraw 2
+		
+		pos 125,200:color 255,255,255
+		font "MS ゴシック",25
+		
+		pos 124,198
+		color 255,0,0
+		gmode 2,163,82
+		gcopy 18,0,0,163,82
+		pos 124,200+82
+		font "MS gosic",25
+		mes "のこり"+(maxcont-cont)+"回"
+		pos 124,200+83
+		font "MS gosic",25
+		color 0,0,0
+		mes "のこり"+(maxcont-cont)+"回"
+		pos 124,200+84
+		font "MS gosic",25
+		color 255,255,255
+		mes "のこり"+(maxcont-cont)+"回"
+		getkey keyon,89
+		getkey keyon2,78
+		if keyon =1:goto *mainloopas
+		if keyon2=1:goto *gameov
+	loop
+*mainloopas
+	cls:life=4:cont+=1:goto *mainloop
+*gameclear
+	;cls
+	dmstop
+	mmstop
+	;picload "data/img/kuria.GIF",1
+	color 255,0,0
+	;mes "ゲームクリア！！"
+	;mmplay 10
+	mes
+	;if cont>=1:mes "コンチィニューしているのでリプレイは保存できません":button "戻る",*no:stop
+	if replayf=1:replayf=0:repup=0:button "終了",*start:stop
+	if repup=1  :replayf=0:repup=0:button "次へ",*endingloop:stop
+	foreach hiscorelineint
+		if hiscorelineint(cnt) <= score :hozonline=cnt:gosub *scorehozon :break
+	loop
+*claaa2
+	if replayf=1:replayf=0:repup=0:button "終了",*start:stop
+	if repup=1:replayf=0:repup=0:button "次へ",*endingloop:stop
+	mes "リプレイを保存しますか？"
+	button "ＯＫ",*ok2:button "NO",*no2
+
+	pos 200,100
+
+	stop
+*no2
+	dialog "ﾘﾌﾟﾚｲを保存せずにエンディングへ行きます。\nよろしいですか？",2
+	if stat=6:goto *endingloop
+	if stat=7:stop
+	stop
+*scorehozon
+	
+	sdim scorename,128
+	color 255,255,255
+	if ababababa=1:color 255,0,255
+	hozonlinemae=hozonline+1
+	if hozonline=0:mes "HISCORE!１位にランクイン！":else:mes ""+hozonline+"位にランクイン！"
+	mes "名前を入れてください"
+	input scorename,,,7:button "score保存",*scorehozon2
+
+	return
+*scorehozon2
+	objprm 0,scorename
+	;dialog ""+scorename+"をランキングに保存しました"
+	notesel hiscores
+	noteadd str(score),hozonline,0
+	noteunsel 
+	notesel hiscorename
+	noteadd scorename,hozonline,0
+	noteunsel 
+	bsave "hiscore.bin",hiscores,2048
+	bsave "hisname.bin",hiscorename,2048
+
+	dialog "ネットランキングに挑戦しますか?",2
+	if stat=6:goto *netscorehozon
+	goto *scorehozon3
+*netscorehozon
+	screen 0,440,440,0
+	cls
+	color , 8, 24
+	boxf
+	color 255,0,0
+	font "MS ゴシック",40
+	mes "Now Getting...."
+	color 255,255,255
+	font "MS ゴシック",16
+	ftpopen "members-ftp.jcom.home.ne.jp","kabutomusionline","higasig"
+	ftpdir tmp,"toireheGo"
+	;ftpdir tmp,"toireheGo2"
+	
+	ftpget "hiscore.bin","net/netscore.bin",0
+	ftpget "hisname.bin","net/netname.bin",0
+	ftpget "playfps.bin","net/playfps.bin",0
+   	sdim netscores,2048
+   	sdim netscorename,2048
+  	sdim playfpss,2048
+    bload "net/netscore.bin",netscores,2048
+	bload "net/netname.bin",netscorename,2048
+	bload "net/playfps.bin",playfpss,2048
+	
+	notesel netscores
+	dim netscorelineint,10
+	repeat 10
+		noteget netscoreline(cnt),cnt
+		netscorelineint(cnt) = int(netscoreline.cnt)	
+	loop
+	noteunsel 
+	notesel netscorename
+	sdim netscorenameline,50,10
+	repeat 10
+		noteget netscorenameline(cnt),cnt
+	loop
+	noteunsel 
+	notesel playfpss
+	dim playfpsslineint,10
+	repeat 10
+		noteget playfpssline(cnt),cnt
+		playfpsslineint(cnt) = int(playfpssline.cnt)	
+	loop
+	noteunsel 
+	
+	
+	
+	foreach hiscorelineint
+		
+		if netscorelineint(cnt) <= score :hozonline=cnt:hozonOk=1 :break
+	loop
+
+	if hozonOk=1{
+		notesel netscores
+		noteadd str(score),hozonline,0
+		noteunsel 
+		notesel netscorename
+		noteadd scorename,hozonline,0
+		noteunsel 
+		notesel playfpss
+		noteadd str(heikinfps/1000),hozonline,0
+		noteunsel
+		bsave "net/netscore.bin",netscores
+		bsave "net/netname.bin",netscorename
+		bsave "net/playfps.bin",playfpss
+		ftpput "net/netscore.bin","hiscore.bin"
+		ftpput "net/netname.bin","hisname.bin"
+		ftpput "net/playfps.bin","playfps.bin"
+		;dialog stat+""
+		ftpclose
+	}
+	
+	notesel netscores
+	;dim netscorelineint,10
+	repeat 10
+		noteget netscoreline(cnt),cnt
+		netscorelineint(cnt) = int(netscoreline.cnt)	
+	loop
+	noteunsel 
+	notesel netscorename
+	;sdim netscorenameline,128,10
+	repeat 10
+		noteget netscorenameline(cnt),cnt
+	loop
+	noteunsel 
+	notesel playfpss
+	;dim playfpsslineint,10
+	repeat 10
+		noteget playfpssline(cnt),cnt
+		playfpsslineint(cnt) = int(playfpssline.cnt)	
+	loop
+	noteunsel 
+	
+	
+	cls
+	color , 8, 24
+	boxf
+
+	color 255,0,0
+	font "MS ゴシック",40
+	mes "Netscore_Ranking"
+	color 255,255,255
+	font "MS ゴシック",16
+	mes:mes:mes
+	foreach netscorelineint
+		tmp = cnt + 1
+		nagasascore = strlen (netscorenameline(cnt))
+		if nagasascore >=8 :jotyou="":else:jotyou="\t"
+		mes "\t"+tmp+"\t:"+netscorelineint(cnt)+"\t:"+netscorenameline(cnt)+jotyou+"\tFPS="+playfpssline.cnt
+		tmp = 0
+	loop
+	mes:mes
+	hozonline2=hozonline+1
+	if hozonOk != 1{dialog "残念！スコアが届きませんでした。"
+	}else{
+		if hozonline=0:mes "HISCORE!１位にランクイン！":else:mes ""+hozonline2+"位にランクイン！"
+	}
+	
+	button "OK",*scorehozon3
+	stop
+*scorehozon3
+	if cont>=1{
+		if ababababa=1{
+			if hozonOk = 1{
+			dialog "リプレイをアップロードしますか?",2
+			if stat=6:goto *replayup
+			}
+		}
+	}
+	else{
+		if hozonOk = 1{
+			dialog "リプレイをアップロードしますか?",2
+			if stat=6:goto *replayup
+		}
+	}
+	hozonOk=0
+*scorehozon4
+	cls
+	if ababababa=1:ababababa=0:goto *claaa2
+	goto *claaa
+*gameovmae
+	dialog "終了しますか？",2
+	if stat=6:end
+	if stat=7:return
+	return
+*gameov
+	poke replay,frame+10,255
+	poke replay,frame+20,255
+	poke replay,frame+32,255
+	poke replay,frame+43,255
+	cls 
+	
+	mmstop
+	mci "close stgBgm"
+	mci "close bosBgm"
+	pos 50,0
+	picload "data/img/dore.GIF"
+	color 255,0,0
+	mes "ゲームおーばー"
+
+	mci "play data/music/sea2.mid"
+*cl
+	mes
+	if replayf=1:replayf=0:button "戻る",*start:stop
+	foreach hiscorelineint
+		if hiscorelineint(cnt) <= score :hozonline=cnt:gosub *scorehozon :break
+	loop
+*claaa
+	if cont>=1:mes "コンチィニューしているのでリプレイは保存できません":button "戻る",*no:stop
+	if replayf=1|repup=1:replayf=0:repup=0:button "戻る",*start:stop
+	
+	mes "リプレイを保存しますか？"
+	button "ＯＫ",*ok:button "NO",*no
+
+	pos 200,100
+
+	stop
+*replayup
+	bsave "replay/"+scorename+".rep",replay,frame+100
+	ftpopen "members-ftp.jcom.home.ne.jp","kabutomusionline","higasig"
+	ftpdir tmp,"toireheGo"
+	;ftpdir tmp,"toireheGo2"
+	ftpput "replay/"+scorename+".rep",scorename+".rep"
+	ftpclose
+	dialog scorename+"を/replayに保存しアップロードしました"
+	repup=1
+	goto *scorehozon4
+*ok
+	mes "リプレイの名前を入れてください"
+	input replayname:button "保存",*hozon
+	stop
+*ok2
+	mes "リプレイの名前を入れてください"
+	input replayname:button "保存",*hozon2
+	stop
+*hozon
+	objprm 3,replayname
+	dialog replayname+"を/replayに保存しました"
+	bsave "replay/"+replayname+".rep",replay,frame+100
+	end
+	stop
+*hozon2
+	objprm 3,replayname
+	dialog replayname+"を/replayに保存しました"
+	bsave "replay/"+replayname+".rep",replay,frame+100
+	goto *endingloop
+	stop
+*no
+	dialog "もどります、よろしいですか?",2
+	if stat=6:goto *start
+	if stat=7:cls:pos 0,0:goto *cl
+	stop
+*replayload
+	cls
+	color , 8, 24
+	boxf
+	color 255,0,0
+	font "MS ゴシック",40
+	mes "Load Replay"
+	color 255,255,255
+	font "MS ゴシック",16
+	mes:mes:mes
+	
+	dirlist clent,"replay/*.rep"
+	notesel clent
+	repeat notemax
+
+		noteget filename.cnt,cnt
+		mes "\t"+filename.cnt
+
+	loop
+	
+	pos 200,100
+	objsize 100,32:combox choice,,clent
+	button "ロードする",*replayload2
+	button "もどる",*clsa
+	stop
+*replayload2
+	bload "replay/"+filename.choice,replay,repbuf
+
+	
+	replayf=1:life=4
+	goto *Stagestart2
+
+	
+*endo
+	
+	end
+*stagecla1
+	color 0,0,0
+	boxf 0,0,box+20,440
+	box+=20
+	
+
+	if box>=440{
+		cls 4
+		score=score+(kasurikaunterz*100)+(itemgetz*1000)-(sindaz*1000)+(tamakesitaz*10)
+		color 255,255,255
+		font "MS　ゴシック",20
+		mes "CLEAR STAGE!\n"
+		font "MS ゴシック",15
+		mes "\t失ったライフ:\t"+sindaz+"\t×1000\t=\t-"+sindaz*1000
+		mes "\t総敵弾カスリ:\t"+kasurikaunterz+"\t×100\t=\t"+kasurikaunterz*100
+		mes "\t敵弾消滅数:\t"+tamakesitaz+"\t×10\t=\t"+tamakesitaz*10
+		mes "\tアイテム取得:\t"+itemgetz+"\t×1000\t=\t"+itemgetz*1000
+		;mes "\tゲームスピード:\t"+heikinfps/1000+"×1000\t=\t"+heikinfps
+		mes "\t合計:\t\t\t\t"+score
+		mes
+		mes "\tEnter to Go Next Stage"
+		repeat
+		if replayf=1:lpc+=1
+		await 1
+		stick keyone,32
+		if keyone&32{
+			lpc=0:box=0
+			cls:stage=2:turn=0:titlex=0:bos=0:goto *Stagestart2
+		}
+		if lpc >= 1250:lpc=0:cls:stage=2:turn=0:titlex=0:box=0:bos=0:goto *Stagestart2
+		loop
+		
+	}
+
+	return
+*stagecla2
+	color 0,0,0
+	boxf 0,0,box+20,440
+	box+=20
+	
+
+	if box>=440{
+		cls 4
+		score=score+(kasurikaunterz*100)+(itemgetz*1000)-(sindaz*1000)+(tamakesitaz*10)
+		color 255,255,255
+		font "MS　ゴシック",20
+		mes "CLEAR STAGE!\n"
+		font "MS ゴシック",15
+		mes "\t失ったライフ:\t"+sindaz+"\t×1000\t=\t-"+sindaz*1000
+		mes "\t総敵弾カスリ:\t"+kasurikaunterz+"\t×100\t=\t"+kasurikaunterz*100
+		mes "\t敵弾消滅数:\t"+tamakesitaz+"\t×10\t=\t"+tamakesitaz*10
+		mes "\tアイテム取得:\t"+itemgetz+"\t×1000\t=\t"+itemgetz*1000
+		;mes "\tゲームスピード:\t"+heikinfps/1000+"×1000\t=\t"+heikinfps
+		mes "\t合計:\t\t\t\t"+score
+		mes
+		mes "\tEnter to Go Next Stage"
+		repeat
+		if replayf=1:lpc+=1
+		await 1
+		stick keyonw,32
+		
+		if keyonw&32:cls:box=0:stage=3:turn=0:titlex=0:lpc=0:bos=0:goto *Stagestart2
+		if lpc >= 1250:lpc=0:box=0:cls:stage=3:turn=0:titlex=0:bos=0:goto *Stagestart2
+		loop
+		
+	}
+
+	return
+*stagecla3
+	color 0,0,0
+	boxf 0,0,box+20,440
+	box+=20
+	
+
+	if box>=440{
+		cls 4
+		score=score+(kasurikaunterz*100)+(itemgetz*1000)-(sindaz*1000)+(tamakesitaz*10)
+		color 255,255,255
+		font "MS　ゴシック",20
+		mes "CLEAR STAGE!\n"
+		font "MS ゴシック",15
+		mes "\t失ったライフ:\t"+sindaz+"\t×1000\t=\t-"+sindaz*1000
+		mes "\t総敵弾カスリ:\t"+kasurikaunterz+"\t×100\t=\t"+kasurikaunterz*100
+		mes "\t敵弾消滅数:\t"+tamakesitaz+"\t×10\t=\t"+tamakesitaz*10
+		mes "\tアイテム取得:\t"+itemgetz+"\t×1000\t=\t"+itemgetz*1000
+		;mes "\tゲームスピード:\t"+heikinfps/1000+"×1000\t=\t"+heikinfps
+		mes "\t合計:\t\t\t\t"+score
+		mes
+		mes "\tEnter to Go Ending!"
+		repeat
+		if replayf=1:lpc+=1
+		await 1
+		stick keyonz,32
+		if keyonz&32{
+			ababababa=1
+			lpc=0:box=0
+			stage=4:turn=0:titlex=0:bos=0:goto *gameclear
+		}
+		if lpc >= 1250:lpc=0:box=0:ababababa=1:stage=4:turn=0:titlex=0:bos=0:goto *gameclear
+		loop
+		
+	}
+
+	return
+*stage3loop
+
+	ct++
+	frame+=1
+	redraw 0
+
+	
+
+	gosub *backg_screen
+	color 0,0,0
+	boxf 350,0,440,440
+	
+	gosub *write_stage
+	gosub *keychk
+	
+	gosub *write_status
+	gosub *write_mychar
+	gosub *put_shot
+	gosub *call_enemy
+	
+	gosub *object_move
+	
+	if hissatuf=1:gosub *moreta_wapon
+	if hissatuf=2:gosub *moreta_wapon2
+	if morerl=1:gosub *moreta_wapon2_2
+
+	if drawhantei=1{
+			color 255, 0, 0
+			boxf mycharcenterx, mycharcentery, mycharcenterx+mycharuppery, mycharcentery+mycharRightx
+			boxf mycharcenterx, mycharcentery, mycharcenterx+mycharuppery, mycharcentery-mycharRightx
+			boxf mycharcenterx, mycharcentery, mycharcenterx-mycharuppery, mycharcentery-mycharRightx
+			boxf mycharcenterx, mycharcentery, mycharcenterx-mycharuppery, mycharcentery+mycharRightx
+	}
+
+	gosub *hitchk
+	redraw 1
+	
+//----------------------------ＦＰＳ取得＆調整
+	fps=d3getfps()
+	sumfps+=fps
+	heikinfps=(sumfps/frame)*1000
+	
+	if waitkaunt<=0.0:waitkaunt=0.0
+
+	mm_await waitkaunt
+	await 
+//----------------------------
+	if life<=0&mutekif=2:redraw 0:goto *q_continue
+	goto *stage3loop
+*kanzenexit
+	end
+*sen1
+	noteget exa,1
+	noteget eya,2
+	noteget ehp,3
+	sens=1
+	
+	//敵発生
+
+	repeat tmax
+		if tf.cnt>0 {continue} if dis.cnt>0 {continue}							;空きフラグを探す
+		eh+
+		eh2.cnt=90										;向かう角度を求める
+		tf.cnt=1										;フラグオン
+		tc.cnt=255										;色
+		
+		ts.cnt=50										;敵フラグをオン
+		zhp.cnt=int(ehp)
+		
+		tx.cnt=int(exa)*1000 :ty.cnt=int(eya)*1000			;位置に弾発生(1000倍）
+		txv.cnt=cosa(eh2.cnt)/5 : tyv.cnt=sina(eh2.cnt)/5	;移動方向
+
+		//当たり判定の範囲
+		hitchklenghx.cnt=20
+		hitchklenghy.cnt=40
+
+		//中心座標用加算変数
+		tcplusx.cnt=20
+		tcplusy.cnt=40
+		
+		if eh=1 : eh=0 : break							;1つ出現さしてループを抜ける
+	loop
+
+	turn+=1
+	
+	return
+*sen2
+	noteget exa,1
+	noteget eya,2
+	noteget ehp,3
+	sens=1
+	
+	//敵発生
+
+	repeat tmax
+		if tf.cnt>0 {continue} if dis.cnt>0 {continue}							;空きフラグを探す
+		eh+
+		eh2.cnt=90										;向かう角度を求める
+		tf.cnt=1										;フラグオン
+		tc.cnt=255										;色
+		
+		ts.cnt=55										;敵フラグをオン
+		zhp.cnt=int(ehp)
+		
+		tx.cnt=int(exa)*1000 :ty.cnt=int(eya)*1000			;位置に弾発生(1000倍）
+		txv.cnt=cosa(eh2.cnt)/5 : tyv.cnt=sina(eh2.cnt)/5	;移動方向
+
+		//当たり判定の範囲
+		hitchklenghx.cnt=20
+		hitchklenghy.cnt=40
+
+		//中心座標用加算変数
+		tcplusx.cnt=20
+		tcplusy.cnt=40
+		
+		if eh=1 : eh=0 : break							;1つ出現さしてループを抜ける
+	loop
+
+	turn+=1
+	
+	return
+*vman3
+	noteget exa,1
+	noteget eya,2
+	
+	//敵発生
+
+	repeat tmax
+		if tf.cnt>0 {continue} if dis.cnt>0 {continue}							;空きフラグを探す
+		eh+
+		eh2.cnt=180										;向かう角度を求める
+		tf.cnt=1										;フラグオン
+		tc.cnt=255										;色
+		
+		ts.cnt=51										;敵フラグをオン
+		
+		tx.cnt=int(exa)*1000 :ty.cnt=int(eya)*1000			;位置に弾発生(1000倍）
+		txv.cnt=cosa(eh2.cnt)/5 : tyv.cnt=sina(eh2.cnt)/5	;移動方向
+
+		//当たり判定の範囲
+		hitchklenghx.cnt=20
+		hitchklenghy.cnt=40
+
+		//中心座標用加算変数
+		tcplusx.cnt=20
+		tcplusy.cnt=40
+		
+		if eh=1 : eh=0 : break							;1つ出現さしてループを抜ける
+	loop
+
+	turn+=1
+	
+	return
+*eone
+	if dis.cnt=0{
+				objtimek.cnt+=1
+				gmode 2,32,32
+				gcopy 4,0,0,32,32
+				if objtimek.cnt<=150&objtimek.cnt>=100{
+					if objtimek.cnt<=100+0*1&objtimek.cnt>=100{
+						target=cnt
+						gosub *put_enemyshot1
+						target=0
+						objtimek.cnt=0
+					}
+				}
+			}else{
+				
+				nohit cnt
+				
+				if dis.cnt=1{
+					target=cnt
+					gosub *put_item
+					target=0
+					dis.cnt=2
+				}
+				objtimek.cnt+=1
+				
+				if objtimek.cnt>=5:objtimek.cnt=0:objtimek2.cnt+=1
+				objtimek3.cnt=objtimek2.cnt*32
+				gmode 2,32,32
+				gcopy 4,objtimek3.cnt,0,32,32
+				if objtimek2.cnt>9{
+					objtimek.cnt=0:objtimek2.cnt=0:objtimek3.cnt=0
+					ts.cnt=0:dis.cnt=0:tf.cnt=0
+					txv.cnt=0 : tyv.cnt=0
+					tf.cnt=0
+				}				
+			}				
+		return
+
+*endingloop
+
+	gsel 0	
+	redraw 2
+//----------------------------d3モジュールで背景描画
+	ct++
+	redraw 0
+	color c1,c1,c1
+	;color 255,255,255
+	boxf
+	
+	if initend=0{
+		cls
+		endx=200:endy=400
+		dst3=1500:endcnt=0:endcnt2=0:endcnt3=0
+		baku2=2
+			d3setcam cos(0.0002 * timec) * 2000, sin(0.0002 * timec) * 2000, 1500
+		
+		dmplay 10,17
+		ct = 0
+		time_start = d3timer()
+		morex=0:morey=500
+		senx=500:seny=-100
+		
+		buffer 23,,,
+		picload "data/img/texture1.bmp"
+
+		d3ldparticle  5,  17,  0, 0,  44, 53
+		d3ldparticle  6,  12,  361, 0,  264, 264
+		
+		gsel 0
+		
+		repeat 200
+			x.cnt = rnd(4000) - 2000
+			y.cnt = rnd(4000) - 2000
+			z.cnt = rnd(4000) - 2000
+		loop
+		repeat 36
+			xs.cnt=cos(0.18 * cnt) * 350
+			ys.cnt=sin(0.18 * cnt) * 350
+			zs.cnt=60
+			zs2.cnt=-60
+		loop
+		xjik=0:zetjik=0
+		initend=1
+	}
+
+	
+	
+	
+	gmode 5, , , 255 
+	d3particle 0,  0, 0, 0,  200
+	gmode 5, , , 255 
+	d3particle 6,  -700, 700, 2000,  400
+
+//-----------------------------------------------------
+if sssk<=40{
+	if timec >= 50*100:senx-=3:seny+=3
+	if senx<=300&kaiwaend=0:senx+=3:seny-=3:gosub *k21
+	if senx<=300&kaiwaend=1:senx+=5:seny-=5:sensyuk+=1
+	if sensyuk>=30:sensyuk-=1:sssk+=1
+	if sssk=1:ds_play 13
+	if sssk>=20&sssk<=30:ds_play 14
+	gmode 2,,:pos senx, seny
+	gzoom  49-sensyuk/2, 93-sensyuk, 15,  0, 0,  49, 93
+
+	
+	
+	bakum+=1:
+	if bakum>=4:baku+=1:bakum=0
+	pos senx+10,seny+30:gcopy 7,baku*64,0,64,64
+	if baku>=20:baku=2
+}
+//------------------------------------------------------
+	
+	gmode 5, , , 128 
+	
+	repeat 200
+		d3particle 1,  x.cnt, y.cnt, z.cnt,  20
+	loop
+	if sssk>=30:sssk+=1
+	if sssk>=20&sssk<=50:gosub *chuka_cannon_last
+	if sssk>=20&sssk<=80:gosub *chuka_cannon_move
+	if sssk>=400:c1-=1:if c1<=0:c1=0:morex+=1:morey-=1:if morex>=200:morex-=1:morey+=1:
+	if sssk>=500&sssk<=505:dmstop:mmplay 10
+	
+	
+		
+if sssk<=80{
+	d3setcam cos(0.0002 * timec) * 2000, sin(0.0002 * timec) * 2000, 1500
+	gosub *wakka
+	gosub *puropera
+	
+	gosub *ball
+}else{
+	if sssk<=1000{
+		d3setcam cos(0.0002*timec) * (2000-endcnt), sin(0.0002*timec) * (1000-endcnt2), 1500
+		dst =cos(0.0002 * timec) * 2000
+		dst2=sin(0.0002 * timec) * 1000
+	}else{
+		d3setcam cos(0.0002*timec) * (2000-endcnt), sin(0.0002*timec) * (1000-endcnt2), 1500-endcnt3,xjik,0,0+zetjik
+		
+		if endcnt3<1500:endcnt3+=2
+		if endcnt3>=1499{
+			if endcnt2<1000:endcnt2+=1
+			if endcnt <2000:endcnt +=2
+			if endcnt2>=1000&endcnt>=2000{
+			
+			}
+		}
+			
+		
+		
+		if 2000-endcnt<=0&1000-endcnt2<=0&1500-endcnt3<=0{
+			if xjik=0:xjik=500
+			if xjik>1:xjik-=1
+			if zetjik<=1000:zetjik+=1
+		}
+		
+	}
+	if endcnt<2000{
+		gmode 5, , , 255
+		d3particle 5,  0, 0, 0,  100
+	}
+}
+
+	
+	
+	gosub *keychk
+if endcnt<2000{
+//-------------------------------------もれ太表示
+	gmode 2,,,
+	pos morex,morey:gcopy 3,150+(214-150)*morrf,50,60,51
+	mk+=1
+	if mk>=fps/2{
+		morrf = 1 - morrf
+		mk = 0
+	}
+}
+	if xjik=1:gosub *endrole
+//----------------------------ＦＰＳ取得＆調整
+	timec = d3timer() - time_start
+	objtimeka += 1
+	fps=d3getfps()
+	;if waitkaunt<=0:waitkaunt=0
+
+	mm_await waitkaunt
+	pos 300,350
+	;mes "FPS="+fps
+	await
+//----------------------------
+	redraw 1
+	goto *endingloop
+*chuka_cannon_move
+	c1+=5
+	if c1>=255:c1=255
+	return
+*chuka_cannon_last
+	pos senx-200,seny+170
+	gmode 5,14,5,200
+	grotate 5,66,30,1,40,500
+	grotate 5,66,30,1,40,500
+	grotate 5,66,30,1,40,500
+	bakum2+=1:
+	if bakum2>=4:baku2+=1:bakum2=0
+	pos 220,200:gcopy 7,baku2*64,0,64,64
+	pos 150,200:gcopy 7,baku2*64,0,64,64
+	pos 200,140:gcopy 7,baku2*64,0,64,64
+	if baku2>=20:baku2=2
+
+	c1+=3
+	
+	return
+*puropera
+	gmode 5,,,255	
+	color 255,255,255
+//プロペラ-----------------------------------
+	xt=     0,     0,       0,      50
+	yt=     0,     0,      200,     200
+	zt=  -300,  -300,     -250,    -300
+	foreach xt
+	xt2.cnt=  -xt.cnt
+	yt2.cnt=  -yt.cnt
+	zt2.cnt=   zt.cnt
+	loop
+	foreach xt
+	xt3.cnt=  xt.cnt
+	yt3.cnt=  yt.cnt
+	zt3.cnt= -zt.cnt
+	loop
+	foreach xt
+	xt4.cnt=  -xt.cnt
+	yt4.cnt=  -yt.cnt
+	zt4.cnt=  -zt.cnt
+	loop
+
+//プロペラ１-------------------------------------
+	d3line xt.0, yt.0  , zt.0,  xt.2, yt.2, zt.2
+	d3line xt.1, yt.1  , zt.1,  xt.3, yt.3, zt.3
+	d3line xt.2, yt.2  , zt.2,  xt.3, yt.3, zt.3
+//プロペラ２
+	d3line xt.0,  yt.0  , zt.0,   xt.2, -yt.2, zt.2
+	d3line xt.1,  yt.1  , zt.1,  -xt.3, -yt.3, zt.3
+	d3line xt.2, -yt.2  , zt.2,  -xt.3, -yt.3, zt.3
+//-3
+	d3line xt.0, yt.0  , -zt.0,  xt.2, yt.2, -zt.2
+	d3line xt.1, yt.1  , -zt.1,  xt.3, yt.3, -zt.3
+	d3line xt.2, yt.2, -zt.2,  xt.3, yt.3 ,  -zt.3
+//---4
+	d3line xt.0,  yt.0  , -zt.0,   xt.2, -yt.2, -zt.2
+	d3line xt.1,  yt.1  , -zt.1,  -xt.3, -yt.3, -zt.3
+	d3line xt.2, -yt.2  , -zt.2,  -xt.3, -yt.3, -zt.3
+
+	d3texture   xt,   yt,   zt,  23,  0, 0,  100, 100
+	d3texture   xt2,  yt2,  zt2, 23,  0, 0,  100, 100
+	d3texture   xt3,  yt3,  zt3, 23,  0, 0,  100, 100
+	d3texture   xt4,  yt4,  zt4, 23,  0, 0,  100, 100
+
+	d3particle 3, xt.0,yt.0,  zt.2,50
+	d3particle 3, xt.0,yt.0, -zt.2,50
+//---------------------------------------ここまで
+*ball
+	POLYS = 20 ; 球体分割数
+	dh = 6.2831853 / POLYS
+
+
+	r = 200
+
+
+	; oOOo
+	repeat POLYS / 2 - 1, 1
+
+		ph = dh * cnt
+
+		d3initlineto
+
+		repeat POLYS + 1
+			th = dh * cnt
+
+			xb = 00
+			yb = 00
+			zb = r
+
+			; 座標を回転置換
+			d3rotate yb, zb, yb, zb, ph
+			d3rotate xb, yb, xb, yb, th
+			
+			d3lineto xb, yb, zb
+		loop
+	loop
+
+
+	; (())
+	ph = 0.0
+
+	repeat POLYS
+
+		th = dh * cnt
+
+		d3initlineto
+
+		repeat POLYS / 2 - 1, 1
+			ph = dh * cnt
+
+			xb = 00
+			yb = 00
+			zb = r
+
+			; 座標を回転置換
+			d3rotate yb, zb, yb, zb, ph
+			d3rotate xb, yb, xb, yb, th
+
+			d3lineto xb, yb, zb
+			;d3particle 3, xb,yb,  zb ,20
+		loop
+	loop
+
+	
+	return
+*wakka
+	gmode 5,,,255
+	d3initlineto
+	repeat 36
+
+		;------------------------------------------------------------
+		; 連続する線を描画
+		color 255,255,255
+		d3lineto  xs(cnt), ys(cnt), zs(cnt)
+		d3particle 2,xs(cnt),ys(cnt),zs(cnt),20
+		;         └──┬───────────┘
+		;               └ 描画先の線端の位置 (x, y, z)
+		;------------------------------------------------------------
+
+	loop
+	repeat 36
+		d3lineto  xs(cnt), ys(cnt), zs2(cnt)
+		d3particle 1,xs(cnt),ys(cnt),zs2(cnt),20
+	loop
+	
+	return
+*endrole
+	pos endx-100,endy
+	gmode 2,,,
+	gcopy 24,0,3,290,800
+	color 255,255,255
+	font "MS ゴシック",20
+/*	mes "おおよその作成:\n\tAzma"
+	mes:mes:mes:mes:mes:mes:
+	mes "てきキャラグラフィック:\n\tYs<イース>"
+	mes:mes:mes:mes:mes:mes:
+	mes "もれ太グラフィック:\n\tドラゴン定食"
+	mes:mes:mes:mes:mes:mes:
+	mes "Bluegrass Music From:\n\t Banjo Hangout"
+	mes:mes:mes:mes:mes:mes:
+	mes "3D描画＆ﾊﾟｰﾃｨｸﾙ:\n\tUsed d3module"
+	mes:mes:mes:mes:mes:mes:
+*/
+	font "MS ゴシック",30
+	color 255
+		pos endx-100,endy+850
+		mes "Thank you for playing!!!"
+		pos endx-150,endy+850
+		gmode 2,68,83,
+		gcopy 11,0,0+(84*neotenc),68,83
+		if ct\50=0:neotenc = 1 - neotenc
+		pos endx-150,endy+950
+		gmode 2,32,32
+		gcopy 4,0,31,31,31
+		pos endx-120,endy+950
+		gmode 2,32,32
+		gcopy 4,0,94,32,32
+		pos endx-90,endy+950
+		gcopy 4,0,62,35,30
+		pos endx-40,endy+950
+		gcopy 4,0,0,32,32
+		pos endx,endy+950
+		gcopy 7,0,0,64,64
+		pos endx+70,endy+950
+		gcopy 5,37,29,26,33
+		pos endx+100,endy+950
+		gcopy 9,0,0,128,64
+		pos endx,endy+1020
+		gcopy 15,0,0,48,80
+		pos endx-150,endy+900
+		font "MS ゴシック",20
+		mes "めでたしめでたし・・・"
+		
+	if endy+850>=100: endy -= 1
+	return
+	

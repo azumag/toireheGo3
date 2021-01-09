@@ -1,0 +1,3 @@
+noconcrea = 1
+
+bsave "creda.dat",noconcrea
